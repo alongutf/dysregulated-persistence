@@ -5,7 +5,7 @@ This repository contains the code and data used in our paper:
 # 
 ## 📌 Overview
 
-We present a computational framework to quantify the global correlation strength and level of dysregulation in bacterial cells under acute stress. We assess gene correlations by calculating the correlation spectrum of the experimental data and comparing it to our theoritical model - the Generalized Marchenko-Pastur (GMP) distribution. 
+We present a computational framework to quantify the global correlation strength and level of dysregulation in bacterial cells under acute stress. We assess gene correlations by calculating the correlation spectrum of the experimental data and comparing it to our theoritical model - the Generalized Marchenko-Pastur (GMP) distribution.<br>
 This repository includes:
 - Code for reproducing all main figures
 - Scripts for RNA-seq preprocessing and gene correlation analysis
@@ -28,7 +28,7 @@ import src.analysis_functions as af
 import src.bulk_functions as bf
 ```
 ## 🛠️ Usage
-All figures can be generated using the corresponded figureX.py file in scripts/figures
+All figures can be generated using the corresponded figureX.py file in scripts/figures.<br>
 Notebooks for different pipelines are available in scripts:
 - analysis_notebook.ipynb: initial processing, including transformation of probe count data to cell-gene count matrices, cell calling, gene filtering and calculation of correlation eigenvalues.
 - random_matrices.ipynb: generate random wishart matrices with non-diagonal covariance - to compare with the GMP model.
