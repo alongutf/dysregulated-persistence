@@ -19,3 +19,16 @@ Clone the repository and install dependencies:
 
 ```bash
 git clone https://github.com/alongutf/dysregulation-in-antibiotic-tolerance-persistence.git
+conda env create -f environment.yml
+```python
+import src.data_functions as df
+import src.analysis_functions as af
+import src.bulk_functions as bf
+
+## 🛠️ **Usage**
+All figures can be generated using the corresponded figureX.py file in scripts/figures
+Notebooks for different pipelines are available in scripts:
+-analysis_notebook.ipynb: initial processing, including transformation of probe count data to cell-gene count matrices, cell calling, gene filtering and calculation of correlation eigenvalues.
+-random_matrices.ipynb: generate random wishart matrices with non-diagonal covariance - to compare with the GMP model.
+-scanpy_analysis.ipynb: perform UMAP dimensionality reduction, marker gene analysis and further analysis of the single-cell data.
+-bulk_analysis.ipynb: analysis of the bulk RNA-seq data, including differential gene analysis, GO enrichment analysis and data processing.
