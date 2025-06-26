@@ -41,3 +41,4 @@ Notebooks for different pipelines are available in scripts:
 - supplementary figures.ipynb: generates additional figures that are not presented in the main text.
 - sytox_experiment.ipynb: retrieves and analyzes the microplate reader data from the SYTOX blue membrane permeability experiment
 ---
+Genome files and scripts for mapping the scRNA-seq reads are located in scripts/RNA-seq mapping
