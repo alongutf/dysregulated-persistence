@@ -34,4 +34,5 @@ Notebooks for different pipelines are available in scripts:
 - random_matrices.ipynb: generate random wishart matrices with non-diagonal covariance - to compare with the GMP model.
 - scanpy_analysis.ipynb: perform UMAP dimensionality reduction, marker gene analysis and further analysis of the single-cell data.
 - bulk_analysis.ipynb: analysis of the bulk RNA-seq data, including differential gene analysis, GO enrichment analysis and data processing.
+- model_fit.nb: Wolfram Mathematica notebook for calculating the theoretical GMP distribution and fitting the emperical correlation eigenvalues to the model.
 ---
