@@ -1,4 +1,4 @@
-# dysregulation-in-antibiotic-tolerance-persistence
+# dysregulated-persistence
 This repository contains the code and data used in our paper:
 
 **"Genome-wide Dysregulation in Antibiotic Tolerance and Persistence"**  
@@ -18,7 +18,7 @@ This repository includes:
 Clone the repository and install dependencies:
 
 ```bash
-git clone https://github.com/alongutf/dysregulation-in-antibiotic-tolerance-persistence.git
+git clone https://github.com/alongutf/dysregulated-persistence.git
 git pull
 conda env create -f environment.yml --name rnaseq_env
 ```
