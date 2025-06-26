@@ -31,6 +31,7 @@ import src.reader_functions as rf
 ```
 ## 🛠️ Usage
 All figures can be generated using the corresponded figureX.py file in scripts/figures.<br>
+Genome files and scripts for mapping the scRNA-seq reads are located in scripts/RNA-seq mapping.<br>
 Notebooks for different pipelines are available in scripts:
 - analysis_notebook.ipynb: initial processing, including transformation of probe count data to cell-gene count matrices, cell calling, gene filtering and calculation of correlation eigenvalues.
 - bulk_analysis.ipynb: analysis of the bulk RNA-seq data, including differential gene analysis, GO enrichment analysis and data processing.
@@ -41,4 +42,4 @@ Notebooks for different pipelines are available in scripts:
 - supplementary figures.ipynb: generates additional figures that are not presented in the main text.
 - sytox_experiment.ipynb: retrieves and analyzes the microplate reader data from the SYTOX blue membrane permeability experiment
 ---
-Genome files and scripts for mapping the scRNA-seq reads are located in scripts/RNA-seq mapping
+
