@@ -20,11 +20,13 @@ Clone the repository and install dependencies:
 ```bash
 git clone https://github.com/alongutf/dysregulation-in-antibiotic-tolerance-persistence.git
 conda env create -f environment.yml
+```
+Installing source packages:
 ```python
 import src.data_functions as df
 import src.analysis_functions as af
 import src.bulk_functions as bf
-
+```
 ## 🛠️ **Usage**
 All figures can be generated using the corresponded figureX.py file in scripts/figures
 Notebooks for different pipelines are available in scripts:
