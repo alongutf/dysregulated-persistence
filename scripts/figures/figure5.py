@@ -159,7 +159,7 @@ def panel_F(ax):
     # set positions of bars
     ax.set_xticks(positions)
     ax.set_xticklabels([labels[val] for val in data['sample']])
-    ax.set_ylabel('CSI', fontsize=fsize, labelpad=0)
+    ax.set_ylabel('GMP-Cor', fontsize=fsize, labelpad=0)
     ax.set_yticks([0.2, 0.4, 0.6, 0.8])
     ax.tick_params(axis='both', which='major', labelsize=fsize-2)
     ax.set_ylim([0.2, 0.8])

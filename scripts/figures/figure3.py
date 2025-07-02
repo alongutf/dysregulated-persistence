@@ -184,7 +184,7 @@ def panel_E(ax):
            color=colors, edgecolor='black', alpha=0.7, width=0.3)
 
     ax.set_ylim([0, 1])
-    ax.set_ylabel('CSI', fontsize=fsize)
+    ax.set_ylabel('GMP-Cor', fontsize=fsize)
     ax.set_xticks(range(len(labels)))
     ax.set_xticklabels(labels, rotation=25)
     ax.tick_params(axis='both', which='major', labelsize=fsize)
@@ -197,58 +197,6 @@ def panel_E(ax):
     #ax.text((x1 + x2) / 2, y + h + 0.02, format_p(ttest.pvalue), ha='center', va='bottom', color=col)
 
 
-def panel_F(ax):
-    # scanlag plot:
-    data_dir = os.path.join(root_dir, 'scanlag_data', 'exp2')
-    x_min = 900
-    x_max = 4000
-    n_points = 100
-    n_reps = 3
-    interp_data = {'Exponential': [], 'Reg-Arrest': [], 'Dis-Arrest': []}
-    colors = {'Exponential': '#9ecae1', 'Reg-Arrest': '#9ecae1', 'Dis-Arrest': '#a50f15'}
-    linestyles = {'Exponential': '-', 'Reg-Arrest': '--', 'Dis-Arrest': '-'}
-    common_x = np.linspace(x_min, x_max, num=n_points)
-    for file in os.listdir(data_dir):
-        data = pd.read_csv(os.path.join(data_dir, file), header=0)
-        y_interpolated = np.interp(common_x, data['X'], data['Y'])
-        if 'EXP' in file:
-            interp_data['Exponential'].append(y_interpolated)
-        elif 'CASP' in file:
-            interp_data['Reg-Arrest'].append(y_interpolated)
-        elif 'SHX' in file:
-            interp_data['Dis-Arrest'].append(y_interpolated)
-
-    for key, value in interp_data.items():
-        y_mean = np.mean(value, axis=0)
-        y_std = np.std(value, axis=0, ddof=1)
-        t_crit = t.ppf(0.84, df=n_reps - 1)  # for 68% CI: t(0.84, df = n_reps-1)
-        ci = (y_std / np.sqrt(n_reps))
-        existing_values = y_mean > y_mean[-1]
-        ax.plot(common_x[existing_values], y_mean[existing_values], label=key, color=colors[key],
-                linestyle=linestyles[key], linewidth=1)
-        plt.fill_between(common_x[existing_values],
-                         (y_mean - ci)[existing_values],
-                         (y_mean + ci)[existing_values],
-                         alpha=0.3,
-                         color=colors[key])
-
-    ax.set_xlabel('Lag time (min)', fontsize=fsize)
-    ax.set_ylabel('SF', fontsize=fsize, labelpad=0)
-    ax.set_xscale('log')
-    ax.set_yscale('log')
-    ax.set_xlim(x_min, x_max)
-    ax.set_xticks([1000, 2000, 3000, 4000])
-    ax.set_xticklabels([1000, 2000, '', 4000])
-    # set tick fontsize
-    ax.tick_params(axis='both', which='major', labelsize=fsize - 2)
-    ax.set_ylim(0.0005, 2)
-    handles, labels = ax.get_legend_handles_labels()
-
-    # use an OrderedDict to remove duplicates while preserving order
-    by_label = OrderedDict(zip(labels, handles))
-
-    # re-draw the legend with only the unique labels
-    ax.legend(by_label.values(), by_label.keys(), loc='upper right', fontsize=fsize - 2)###
 # Build figure 1:
 fsize = 10
 plt.close("all")
@@ -258,9 +206,8 @@ panel_pos = [
     [0.1, 0.6, 0.23, 0.35],  # A
     [0.42, 0.6, 0.23, 0.35],  # B
     [0.74, 0.6, 0.23, 0.35],  # C
-    [0.1, 0.12, 0.23, 0.35],  # D
-    [0.42, 0.12, 0.23, 0.35],  # E
-    [0.74, 0.12, 0.23, 0.35],  # F
+    [0.225, 0.12, 0.23, 0.35],  # D
+    [0.545, 0.12, 0.23, 0.35],  # E
 ]
 # panel A:
 pf.add_panel(panel_pos[0], draw_func=panel_A)
@@ -272,7 +219,5 @@ pf.add_panel(panel_pos[2], draw_func=panel_C)
 pf.add_panel(panel_pos[3], draw_func=panel_D)
 # panel E:
 pf.add_panel(panel_pos[4], draw_func=panel_E)
-# panel F:
-pf.add_panel(panel_pos[5], draw_func=panel_F)
 pf.save("figure3.pdf", dpi=300)
 plt.show()
