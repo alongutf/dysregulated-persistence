@@ -233,7 +233,7 @@ def panel_B(ax):
             ax.text(pos,y+2*h,get_asterisks(p_adj), ha='center', fontsize = fsize-3)
 
     # Set title and labels
-    ax.set_ylabel('$-\log_{10}{p_{adj}}$', fontsize=fsize, labelpad=0)
+    ax.set_ylabel('Enrichment score', fontsize=fsize, labelpad=0)
     ax.set_xlabel('GO ID', fontsize=fsize, labelpad=0)
     ax.set_ylim([0,19])
     ax.set_yticks([4, 8, 12, 16])
@@ -266,7 +266,7 @@ def panel_B(ax):
         mean_line.set_linestyle('solid')
 
     inset_ax.set_xticklabels(['Dis-Arrest', 'Reg-Arrest'], fontsize=fsize - 2, rotation=15, ha='center')
-    inset_ax.set_ylabel('$-\log_{10}{p_{adj}}$', fontsize=fsize - 2, labelpad=0)
+    inset_ax.set_ylabel('Enrichment score', fontsize=fsize - 2, labelpad=0)
     inset_ax.set_yticks([4, 8, 12, 16], )
     inset_ax.set_yticklabels([4, 8, 12, 16], fontsize=fsize - 2)
     # add u-test results
@@ -288,7 +288,7 @@ def panel_C(ax):
     # Load the GO enrichment results
     file_name = 'GOATOOLS_GO_enrichment_results_time_series'
     time = [218, 318, 426, 529, 586, 1609, 1794, 1904]
-    path = os.path.join(root_dir, 'results', 'GO_results','time_series2', file_name)
+    path = os.path.join(root_dir, 'results', 'GO_results','time_series11', file_name)
     go_results = pd.read_csv(path + '1.csv')
     common_go_terms = set(go_results['GO_ID'])
     for i in range(2, 9):
@@ -303,7 +303,7 @@ def panel_C(ax):
         go_results.name = f't{i}'
         common_go_df = common_go_df.join(go_results)
 
-    common_go_df = common_go_df.loc[common_go_df['t1'] < 1e-4]
+    common_go_df = common_go_df.loc[common_go_df['t1'] < 1e-6]
     # plot average FDR of GO terms over time with error ribbon
     data = common_go_df
     data = -np.log10(data)
@@ -313,12 +313,14 @@ def panel_C(ax):
     for _, row in data.iterrows():
         plt.plot(time, row, marker='.', markersize=6, color='grey', alpha=0.3)
     y = np.mean(data, axis=0)
-    err = np.std(data, axis=0)
+    n_terms = data.shape[0]
+    t_crit = stats.t.ppf(0.84, df=n_terms - 1)
+    err = t_crit * np.std(data, axis=0) / np.sqrt(n_terms)
     ax.fill_between(time, y - err, y + err, color='#de2d26', alpha=0.3)
     ax.plot(time, y, marker='o', markersize=4, color='#de2d26', alpha=0.7)
     ax.set_xlabel('Time (min)', fontsize=fsize-2)
     ax.set_ylabel('Relative enrichment', fontsize=fsize-2, labelpad=0)
-    ax.set_yticks([-6,-4,-2, 0, 2])
+    ax.set_yticks([-6,-4,-2, 0])
     ax.set_xticks([500,1000,1500])
     ax.set_xticklabels([500, 1000, 1500], fontsize=fsize)
     # set tick size
@@ -359,7 +361,7 @@ def panel_D(ax):
     cbar.ax.set_title(r'$\times10^3$', pad=1, fontsize=fsize-3, loc='left')
 
     ax.set_xlabel('Lag time(min)', fontsize=fsize - 2)
-    ax.set_ylabel('SF', fontsize=fsize, labelpad=0)
+    ax.set_ylabel('Survival Function', fontsize=fsize, labelpad=0)
     ax.set_xscale('log')
     ax.set_yscale('log')
     ax.set_xlim(x_min, x_max)

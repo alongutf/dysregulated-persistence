@@ -54,7 +54,7 @@ def plot_eigvals(ax, pcs, pcs1, N, x_max, y_max, n_bins, x_label=True, y_label=T
     # plot analytical Marchenko-Pastur distribution
     x = np.linspace(-0.1, x_max, 100)
     y = [af.mp_distribution(val, P / N) for val in x]
-    ax.plot(x, y, color='#756bb1', linestyle='dashed', label='Marchenko-Pastur')
+    ax.plot(x, y, color='#756bb1', linestyle='dashed', label='MP')
     # labels and limits
     if x_label:
         ax.set_xlabel("$\lambda$", fontsize=fsize)
@@ -70,20 +70,53 @@ def plot_eigvals(ax, pcs, pcs1, N, x_max, y_max, n_bins, x_label=True, y_label=T
     # set the font size of the ticks
     ax.tick_params(axis='both', which='major', labelsize=fsize)
 
-def panel_A(ax):
-    files = ['model_alpha2_sigma07.txt', 'model_alpha2_sigma08.txt',
-             'model_alpha2_sigma09.txt','model_alpha2_sigma0.txt']
-    labels = ['$\chi=0.7$', '$\chi=0.8$', '$\chi=0.9$','$\chi=0$']
+
+def panel_A(axes):
+    # Create a random NXP matrix
+    N = 500  # number of rows
+    P = 1000  # number of columns
+    matrix = np.random.randn(N, P)
+    # get correlation matrix
+    corr_matrix = matrix.T @ matrix / N
+    sns.heatmap(corr_matrix[:20, :20], ax=axes[0,0], cmap='bwr', center=0, cbar=True, vmin=-.5, vmax=.5)
+    colorbar = axes[0,0].collections[0].colorbar
+    colorbar.set_ticks([-0.5, 0, 0.5])  # Set desired ticks here
+    colorbar.set_label('correlation', fontsize=fsize-2, labelpad=0)  # Set desired label here
+    colorbar.ax.tick_params(labelsize=fsize-2)  # Set desired fontsize here
+
+    # plot the MP distribution
+    eigvals, _ = np.linalg.eig(corr_matrix)
+    eigvals = np.real(eigvals[eigvals > 1e-6])  # keep only positive eigenvalues
+    bins = np.linspace(0, 6, 40)
+    axes[1,0].hist(eigvals, weights=np.ones_like(eigvals)/(P*(bins[1]-bins[0])), bins=bins, color='red', alpha=0.5, density=False, label='simulated\neigenvalues')
+    x = np.linspace(0, 6, 100)
+    y = np.array([af.mp_distribution(val, P / N) for val in x])
+    axes[1,0].plot(x, y, color='red', linewidth=1, label='MP')
+    axes[0,0].set_title('Random matrix', fontsize=fsize)
+    axes[0,0].set_yticks([])
+    axes[0,0].set_xticks([])
+    axes[1,0].set_title('Eigenvalue density', fontsize=fsize)
+    axes[1,0].set_ylabel(r'Probability density-$\rho(\lambda)$', fontsize=fsize-2,labelpad=0)
+    axes[1,0].set_xlabel(r'Eigenvalue-$\lambda$', fontsize=fsize-2, labelpad=0)
+    # set the font size of the ticks
+    axes[1,0].tick_params(axis='both', which='major', labelsize=fsize-2)
+    axes[1,0].grid(False)
+    axes[1,0].legend(fontsize=fsize - 3)
+
+def panel_B(ax):
+    files = ['model_alpha2_sigma0.txt','model_alpha2_sigma07.txt', 'model_alpha2_sigma08.txt',
+             'model_alpha2_sigma09.txt']
+    labels = ['$\chi=0$ (MP)','$\chi=0.7$', '$\chi=0.8$', '$\chi=0.9$']
     # Get the colormap
     cmap = plt.cm.RdBu  # Choose your colormap
 
     # Get 4 evenly spaced colors from the colormap
-    colors = [cmap(i) for i in [0.7, 0.85, 0.95, 0.1]]
+    colors = [cmap(i) for i in [0.1,0.7, 0.85, 0.95]]
     for i, file in enumerate(files):
         data = np.loadtxt(os.path.join(root_dir,'model fit', file))
         ax.plot(data[:, 0], data[:, 1], label=labels[i], color=colors[i], linewidth=1.5)
-    ax.set_xlabel(r'Eigenvalue - $\lambda$', fontsize=fsize, labelpad=0)
-    ax.set_ylabel(r'Probability Density - $\rho(\lambda)$', fontsize=fsize, labelpad=0)
+    ax.set_xlabel(r'$\lambda$', fontsize=fsize, labelpad=0)
+    ax.set_ylabel(r'$\rho(\lambda)$', fontsize=fsize, labelpad=0)
     ax.set_xlim(0, 8.5)
     ax.set_ylim(0, 0.35)
     ax.set_xticks([0, 2, 4, 6, 8])
@@ -94,7 +127,7 @@ def panel_A(ax):
     ax.legend(fontsize=fsize)
 
 
-def panel_B(axes):
+def panel_C(axes):
     # Step 1: Generate a correlated matrix
     np.random.seed(42)
     n_samples = 15
@@ -150,7 +183,7 @@ def panel_B(axes):
                 axes[i, j].xaxis.set_label_position('top')
 
 
-def panel_C(ax):
+def panel_D(ax):
     nbins = 81
     x_max = 8
     y_max = 0.3
@@ -173,7 +206,7 @@ def panel_C(ax):
     plot_eigvals(ax,pcs, pcs1, N, x_max, y_max, nbins)
 
 
-def panel_D(ax):
+def panel_E(ax):
     nbins = 81
     x_max = 8
     y_max = 0.3
@@ -194,7 +227,7 @@ def panel_D(ax):
     plot_eigvals(ax, pcs, pcs1, N, x_max, y_max, nbins)
 
 
-def panel_E(ax):
+def panel_F(ax):
     nbins = 81
     x_max = 8
     y_max = 0.3
@@ -208,7 +241,7 @@ def panel_E(ax):
     # get annotated matrix from file
     file_name = ('deb_KP_CDS_untreated.csv')
     path = os.path.join(root_dir, 'filtered_data', file_name)
-    ax.set_title(r'Untreated $\mathit{K. pneumoniae}$,'
+    ax.set_title(r'Exponential $\mathit{K. pneumoniae}$,'
                  '\n'
                  r'Ma $\mathit{et. al.}$', fontsize=fsize-2)
     pcs, pcs1, N = get_data_for_plot(path, norm=norm, log=log, norm_method=norm_method, norm_sum=norm_sum)
@@ -219,26 +252,30 @@ def panel_E(ax):
 fsize = 10
 plt.close("all")
 root_dir = os.path.dirname(os.path.dirname(os.getcwd()))
-pf = PanelFigure(figsize=(7, 5), label_offset=(-0.02, 0.04))
+pf = PanelFigure(figsize=(7, 5.5), label_offset=(-0.04, 0.04))
 panel_pos = [
-    [0.17, 0.6, 0.35, 0.35],  # A
-    [0.58, 0.55, 0.25, 0.4],  # B
-    [0.08, 0.1, 0.23, 0.35],  # C
-    [0.4, 0.1, 0.23, 0.35],  # D
-    [0.72, 0.1, 0.23, 0.35],  # E
+    [0.06,0.52, 0.21, 0.43],  # A
+    [0.4, 0.65, 0.26, 0.3],  # B
+    [0.72, 0.55, 0.25, 0.4],  # C
+    [0.08, 0.1, 0.23, 0.3],  # D
+    [0.4, 0.1, 0.23, 0.3],  # E
+    [0.72, 0.1, 0.23, 0.3],  # F
 ]
 # panel A:
-pf.add_panel(panel_pos[0], draw_func=panel_A)
+axes_panel_A = pf.add_grid_panel(panel_pos[0], 2, 1, hspace=0.4)
+panel_A(axes_panel_A)
 # panel B:
-axes_panel_B = pf.add_grid_panel(panel_pos[1], 2, 2,
+pf.add_panel(panel_pos[1], draw_func=panel_B)
+# panel C:
+axes_panel_C = pf.add_grid_panel(panel_pos[2], 2, 2,
                   sharex=True, sharey=True,
                   wspace=0.3, hspace=0.2)
-panel_B(axes_panel_B)
-# panel C:
-pf.add_panel(panel_pos[2], draw_func=panel_C, label="C")
+panel_C(axes_panel_C)
 # panel D:
-pf.add_panel(panel_pos[3], draw_func=panel_D, label="D")
+pf.add_panel(panel_pos[3], draw_func=panel_D)
 # panel E:
-pf.add_panel(panel_pos[4], draw_func=panel_E, label="E")
+pf.add_panel(panel_pos[4], draw_func=panel_E)
+# panel F:
+pf.add_panel(panel_pos[5], draw_func=panel_F)
 pf.save("figure2.svg", dpi=300)
 plt.show()

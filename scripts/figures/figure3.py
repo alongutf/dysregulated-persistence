@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 from figure_functions import PanelFigure
 import numpy as np
 import pandas as pd
+from scipy import stats
 from scipy.stats import ttest_ind
 from scipy.stats import t
 import os
@@ -49,7 +50,7 @@ def plot_eigvals(ax, pcs, pcs1, N, x_max, y_max, n_bins, x_label=True, y_label=T
     # plot analytical Marchenko-Pastur distribution
     x = np.linspace(-0.1, x_max, 100)
     y = [af.mp_distribution(val, P / N) for val in x]
-    ax.plot(x, y, color='#756bb1', linestyle='dashed', label='Marchenko-Pastur')
+    ax.plot(x, y, color='#756bb1', linestyle='dashed', label='MP')
     # labels and limits
     if x_label:
         ax.set_xlabel("$\lambda$", fontsize=fsize)
@@ -143,7 +144,7 @@ def panel_D(ax):
     data = data[data['Y'] > 0]
     fit_data = fit_data[fit_data[0] > 0]
     # plot data and fit
-    ax.scatter(data['X'], data['Y'], s=5, color='#de2d26', label='data')
+    ax.scatter(data['X'], data['Y'], s=5, color='#de2d26', label='exponential data')
     ax.plot(fit_data[1], fit_data[0], color='#3182bd', label='GMP fit', linewidth=1.5)
     ax.set_xlabel('$\lambda$', fontsize=fsize)
     ax.set_ylabel(r'$\rho(\lambda)$', fontsize=fsize)
@@ -196,6 +197,44 @@ def panel_E(ax):
     #ax.plot([x1, x1, x2, x2], [y, y + h, y + h, y], lw=1, c=col)
     #ax.text((x1 + x2) / 2, y + h + 0.02, format_p(ttest.pvalue), ha='center', va='bottom', color=col)
 
+def panel_F(ax):
+    path = os.path.join(root_dir, 'scripts', 'figures', 'figure3', 'dataset_summary_no_plasmid_genes.csv')
+    data = pd.read_csv(path, header=0)
+    ranking_param = 'sigma fit'
+    # Sort values and compute rank
+    data['Rank'] = data[ranking_param].rank(method='min').astype(int)
+    # Split data into two groups based on labels
+    group1 = data[data['class'] == 'reg'][ranking_param]
+    group0 = data[data['class'] == 'dis'][ranking_param]
+    c = "k"
+    box = ax.boxplot([group1, group0], meanline=True, showmeans=True, patch_artist=True,
+                     boxprops=dict(facecolor="None", color=c), whiskerprops=dict(color=c), capprops=dict(color=c),
+                     flierprops=dict(markeredgecolor=c, markersize=2), medianprops=dict(color=c))
+    for element in ['boxes', 'whiskers', 'caps', 'medians']:
+        for item in box[element]:
+            item.set_linewidth(1)
+    for mean_line in box['means']:
+        mean_line.set_linewidth(1)
+        mean_line.set_color(c)
+        mean_line.set_linestyle('solid')
+
+    ax.set_xticklabels(['Reg-Arrest/\nExponential', 'Dis-Arrest'], fontsize=fsize, rotation=0, ha='center')
+    ax.set_ylabel('Enrichment score', fontsize=fsize, labelpad=0)
+    ax.set_yticks([0.2, 0.4, 0.6, 0.8, 1])
+    ax.set_ylim([0.2, 1])
+    ax.set_yticklabels([0.2, 0.4, 0.6, 0.8, 1], fontsize=fsize - 2)
+    # add u-test results
+    u_stat, u_p = stats.mannwhitneyu(group1, group0)
+
+    # Define the level of significance
+    asterisks = format_p(u_p)
+    # Add significance annotation
+    x1, x2 = 1, 2  # x-coordinates of the box plots
+    y, h = max(max(group1), max(group0))+0.02, 0.02  # y-position and height of the annotation
+    ax.plot([x1, x1, x2, x2], [y, y + h, y + h, y], lw=.75, color='black')
+    ax.text((x1 + x2) * 0.5, y + h, asterisks, ha='center', va='bottom', color='black', fontsize=fsize - 2)
+    ax.set_ylabel(r'GMP-Cor', fontsize=fsize)
+
 
 # Build figure 1:
 fsize = 10
@@ -206,8 +245,9 @@ panel_pos = [
     [0.1, 0.6, 0.23, 0.35],  # A
     [0.42, 0.6, 0.23, 0.35],  # B
     [0.74, 0.6, 0.23, 0.35],  # C
-    [0.225, 0.12, 0.23, 0.35],  # D
-    [0.545, 0.12, 0.23, 0.35],  # E
+    [0.1, 0.12, 0.23, 0.35],  # D
+    [0.42, 0.12, 0.23, 0.35],  # E
+    [0.74, 0.12, 0.23, 0.35]  # F
 ]
 # panel A:
 pf.add_panel(panel_pos[0], draw_func=panel_A)
@@ -219,5 +259,7 @@ pf.add_panel(panel_pos[2], draw_func=panel_C)
 pf.add_panel(panel_pos[3], draw_func=panel_D)
 # panel E:
 pf.add_panel(panel_pos[4], draw_func=panel_E)
+# panel F:
+pf.add_panel(panel_pos[5], draw_func=panel_F)
 pf.save("figure3.pdf", dpi=300)
 plt.show()

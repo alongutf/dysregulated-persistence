@@ -129,15 +129,36 @@ def panel_A(axes):
         # make the spines wider
         ax.spines['left'].set_linewidth(lw)
         ax.spines['bottom'].set_linewidth(lw)
-        ax.set_xlabel('Time', fontsize=fsize - 2, labelpad=3)
-        ax.set_ylabel('Probability', fontsize=fsize - 2, labelpad=2)
+        ax.set_xlabel('Time', fontsize=fsize - 3, labelpad=3)
+        ax.set_ylabel('Probability', fontsize=fsize - 3, labelpad=2)
         ax.set_xticks([])  # remove ticks
         ax.set_yticks([])
         ax.set_xlim(0, 5)
         ax.set_ylim(0, 1.6)
-        ax.set_title('Lag\ndistribution', fontsize=fsize - 2, pad=2)
+        ax.set_title('Single-cell lag', fontsize=fsize - 2, pad=2)
 
 
+def panel_B(axes):
+    project_dir = os.path.dirname(os.path.dirname(root_dir))
+    bins = np.linspace(0, 1000, 40)
+    hist_data = np.loadtxt(os.path.join(project_dir, 'scanlag_data', 'kaplan_shx', 't0.txt'))
+    hist_data2 = np.loadtxt(os.path.join(project_dir, 'scanlag_data', 'kaplan_shx', 't1346.txt'))
+    x0 = hist_data[0]
+    hist_data = hist_data - x0
+    hist_data2 = hist_data2 - x0
+    green = '#31a354'
+    red = '#CD5C5C'
+    axes[0,0].hist(hist_data, bins=bins, color=green, alpha=0.7)
+    axes[1,0].hist(hist_data2, bins=bins, color=red, alpha=0.7)
+    for ax in axes[:, 0]:
+        ax.set_ylabel('Probability', fontsize=fsize-2, labelpad=0)
+        ax.set_xlim(0, 1000)
+        ax.set_yticks([])
+        ax.spines['top'].set_visible(False)
+        ax.spines['right'].set_visible(False)
+        ax.tick_params(axis='both', which='major', labelsize=fsize - 2)
+    axes[0,0].set_xticks([])
+    axes[1,0].set_xlabel('Lag time (min)', fontsize=fsize, labelpad=0)
 def panel_E(ax):
     # scanlag plot:
     data_dir = os.path.join(os.path.dirname(os.path.dirname(root_dir)), 'scanlag_data', 'exp2')
@@ -146,7 +167,7 @@ def panel_E(ax):
     n_points = 100
     n_reps = 3
     interp_data = {'Exponential': [], 'Reg-Arrest': [], 'Dis-Arrest': []}
-    colors = {'Exponential': '#9ecae1', 'Reg-Arrest': '#9ecae1', 'Dis-Arrest': '#a50f15'}
+    colors = {'Exponential': '#9ecae1', 'Reg-Arrest': '#31a354', 'Dis-Arrest': '#a50f15'}
     linestyles = {'Exponential': '-', 'Reg-Arrest': '--', 'Dis-Arrest': '-'}
     common_x = np.linspace(x_min, x_max, num=n_points)
     for file in os.listdir(data_dir):
@@ -174,7 +195,7 @@ def panel_E(ax):
                          color=colors[key])
 
     ax.set_xlabel('Lag time (min)', fontsize=fsize)
-    ax.set_ylabel('SF', fontsize=fsize, labelpad=0)
+    ax.set_ylabel('Survival Function', fontsize=fsize, labelpad=0)
     ax.set_xscale('log')
     ax.set_yscale('log')
     ax.set_xlim(x_min, x_max)
@@ -253,7 +274,7 @@ fsize = 10
 pf = PanelFigure(figsize=(7, 6.5), label_offset=(-0.03,0.03))
 panel_pos = [
     [0.05, 0.68, 0.35, 0.28],  # A
-    [0.5, 0.68, 0.25, 0.28],  # B
+    [0.5, 0.7, 0.22, 0.26],  # B
     [0.83, 0.74, 0.15, 0.22],  # C
     [0.05, 0.37, 0.2, 0.25],  # D
     [0.33, 0.37, 0.22, 0.25],  # E
@@ -268,7 +289,10 @@ axes_panel_A = pf.add_grid_panel(panel_pos[0], 2, 2, label="A",
                   wspace=0.15, hspace=0.2)
 panel_A(axes_panel_A)
 # panel B:
-pf.add_panel(panel_pos[1], hide_axis=True, label="B")
+axes_panel_B = pf.add_grid_panel(panel_pos[1], 2, 1, label="B",
+                  sharex=True, sharey=True,
+                  wspace=0.15, hspace=0.2)
+panel_B(axes_panel_B)
 # panel C:
 pf.add_panel(panel_pos[2], draw_func=panel_C, label="C")
 # panel D:
