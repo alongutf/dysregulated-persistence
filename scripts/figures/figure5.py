@@ -45,7 +45,7 @@ def plot_eigvals(ax, pcs, pcs1, N, x_max, y_max, n_bins, x_label=True, y_label=T
     # plot analytical Marchenko-Pastur distribution
     x = np.linspace(-0.1, x_max, 100)
     y = [af.mp_distribution(val, P / N) for val in x]
-    ax.plot(x, y, color='#756bb1', linestyle='dashed', label='Marchenko-Pastur')
+    ax.plot(x, y, color='#756bb1', linestyle='dashed', label='MP')
     # labels and limits
     if x_label:
         ax.set_xlabel("$\lambda$", fontsize=fsize, labelpad=0)
@@ -116,7 +116,7 @@ def panel_D(ax):
     norm_sum = 1
     path = os.path.join(root_dir, 'data_for_paper', file_name)
     pcs, pcs1, N = get_data_for_plot(path, norm=norm, log=log, norm_method=norm_method, norm_sum=norm_sum)
-    ax.set_title('Early VapC', fontsize=fsize)
+    ax.set_title('Early VapC (2h)', fontsize=fsize)
     plot_eigvals(ax, pcs, pcs1, N, x_max, y_max, nbins)
     ax.set_ylabel(r"Probability Density - $\rho(\lambda)$", fontsize=fsize, labelpad=0)
     ax.set_xlabel(r"Eigenvalue - $\lambda$", fontsize=fsize, labelpad=0)
@@ -132,7 +132,7 @@ def panel_E(ax):
     norm_sum = 1
     path = os.path.join(root_dir, 'data_for_paper', file_name)
     pcs, pcs1, N = get_data_for_plot(path, norm=norm, log=log, norm_method=norm_method, norm_sum=norm_sum)
-    ax.set_title('Late VapC', fontsize=fsize)
+    ax.set_title('Late VapC (24h)', fontsize=fsize)
     plot_eigvals(ax, pcs, pcs1, N, x_max, y_max, nbins)
 
 def panel_F(ax):
@@ -141,24 +141,25 @@ def panel_F(ax):
     dataset_values = os.path.join(root_dir,'scripts','figures','figure5','dataset_summary_no_plasmid_genes.csv')
     # read data
     data = pd.read_csv(dataset_values)
-    samples = {'EXP_biorep_t0A','VapC_biorep_t2A', 'VapC_biorep_tONA'}
-    labels = {'EXP_biorep_t0A':'Exponential','VapC_biorep_t2A': 'Early\nVapC', 'VapC_biorep_tONA': 'Late\nVapC'}
+    samples = {'EXP_biorep_t0A','VapC_biorep_t2A','VapC_biorep_t5A', 'VapC_biorep_tONA'}
+    labels = {'EXP_biorep_t0A':'Exponential','VapC_biorep_t2A': 'VapC\n2h','VapC_biorep_t5A': 'VapC\n5h', 'VapC_biorep_tONA': 'VapC\n24h'}
     # get data for the samples
     data = data[data['sample'].isin(samples)]
-    data['time'] = [20, 2, 0]
+    data['time'] = [20, 2,5, 0]
     # sort data
-    colors = ['#4393c3','#92c5de','#d6604d']
+    colors = ['#4393c3', '#92c5de', '#fddbc7', '#d6604d']
     data = data.sort_values('time', ascending=True)
-    bar_width = 0.12
+    bar_width = 0.15
     gap_between_bars = 0.4
     positions = [i * (bar_width + gap_between_bars) for i in range(len(data))]
     # create bar plot of sigma fit values
+    positions[0] -= gap_between_bars / 2  # adjust first bar position
     ax.bar(positions, data['sigma fit'], yerr=data['standard error'], capsize=2.5, color=colors, edgecolor='black',
            alpha=0.7, width=bar_width)
 
     # set positions of bars
     ax.set_xticks(positions)
-    ax.set_xticklabels([labels[val] for val in data['sample']])
+    ax.set_xticklabels([labels[val] for val in data['sample']],rotation=0, fontsize=fsize-2,ha='center')
     ax.set_ylabel('GMP-Cor', fontsize=fsize, labelpad=0)
     ax.set_yticks([0.2, 0.4, 0.6, 0.8])
     ax.tick_params(axis='both', which='major', labelsize=fsize-2)
@@ -182,9 +183,9 @@ def panel_G(ax):
     labels = ["Early\nReg", "Late\nReg", "Early\nVapC", "Late\nVapC"]
 
     def get_pval(means, errors, n1, n2):
-        tstat = (means[0] - means[1]) / np.sqrt(errors[0] ** 2 / n1 + errors[1] ** 2 / n2)
+        tstat = (means[1] - means[0]) / np.sqrt(errors[0] ** 2 / n1 + errors[1] ** 2 / n2)
         df = n1 + n2 - 2
-        return 2 * t.sf(np.abs(tstat), df)
+        return 2 * t.sf(tstat, df)
 
     n = 6
     # T-tests
@@ -202,7 +203,7 @@ def panel_G(ax):
         elif p < 0.05:
             return '*'
         else:
-            return 'NS'
+            return 'ns'
 
     # Bar positioning
     bar_width = 0.15
@@ -239,7 +240,7 @@ def panel_G(ax):
     ax.set_yticks([0, 20000, 40000, 60000])
     ax.set_yticklabels([0,2,4,6])
     ax.tick_params(axis='both', which='major', labelsize=fsize)
-    ax.set_ylabel(r"F.I. / O.D. (a.u.)", labelpad=0, fontsize=fsize)
+    ax.set_ylabel(r"SYTOX blue (a.u.)", labelpad=0, fontsize=fsize)
 
 
 def panel_H(ax):
