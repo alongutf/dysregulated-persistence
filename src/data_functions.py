@@ -258,7 +258,7 @@ def plot_eig_dist(pcs, pcs1, N, x_max, y_max, n_bins, ax=None, x_label=True, y_l
     # plot analytical Marchenko-Pastur distribution
     x = np.linspace(-0.1, x_max, 100)
     y = [af.mp_distribution(val, P / N) for val in x]
-    ax.plot(x, y, color='#756bb1', linestyle='dashed', label='Marchenko-Pastur')
+    ax.plot(x, y, color='#756bb1', linestyle='dashed', label='MP')
     # labels and limits
     if x_label:
         ax.set_xlabel("$\lambda$")
