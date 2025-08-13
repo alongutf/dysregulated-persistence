@@ -139,31 +139,40 @@ def panel_F(ax):
     # Create bar plot graph from model fit:
     # load data
     dataset_values = os.path.join(root_dir,'scripts','figures','figure5','dataset_summary_no_plasmid_genes.csv')
+    scrambled_values = os.path.join(root_dir, 'scripts', 'figures', 'figure3', 'scrambled_GMPcor.csv')
     # read data
     data = pd.read_csv(dataset_values)
+    scrambled = pd.read_csv(scrambled_values)
     samples = {'EXP_biorep_t0A','VapC_biorep_t2A','VapC_biorep_t5A', 'VapC_biorep_tONA'}
-    labels = {'EXP_biorep_t0A':'Exponential','VapC_biorep_t2A': 'VapC\n2h','VapC_biorep_t5A': 'VapC\n5h', 'VapC_biorep_tONA': 'VapC\n24h'}
+    labels = ['Exponential','VapC\n2h','VapC\n5h','VapC\n24h']
     # get data for the samples
     data = data[data['sample'].isin(samples)]
-    data['time'] = [20, 2,5, 0]
+    data['time'] = [20, 2, 5, 0]
     # sort data
-    colors = ['#4393c3', '#92c5de', '#fddbc7', '#d6604d']
+    colors = ['#4393c3', '#92c5de', '#fddbc7', '#d6604d',"#a50f15"]
     data = data.sort_values('time', ascending=True)
-    bar_width = 0.15
+    bar_width = 0.2
     gap_between_bars = 0.4
-    positions = [i * (bar_width + gap_between_bars) for i in range(len(data))]
+    # add the scrambled values
+    labels.append('Scrambled')
+    means = data['sigma fit'].to_list()
+    errors = data['standard error'].to_list()
+    means.append(scrambled['GMP-Cor'].mean())
+    errors.append(scrambled['GMP-Cor'].std() / np.sqrt(len(scrambled)))  # standard error
+    positions = [i * (bar_width + gap_between_bars) for i in range(len(means))]
     # create bar plot of sigma fit values
     positions[0] -= gap_between_bars / 2  # adjust first bar position
-    ax.bar(positions, data['sigma fit'], yerr=data['standard error'], capsize=2.5, color=colors, edgecolor='black',
+    positions[-1] += gap_between_bars / 2 # adjust last bar position
+    ax.bar(positions, means, yerr=errors, capsize=2.5, color=colors, edgecolor='black',
            alpha=0.7, width=bar_width)
 
     # set positions of bars
     ax.set_xticks(positions)
-    ax.set_xticklabels([labels[val] for val in data['sample']],rotation=0, fontsize=fsize-2,ha='center')
+    ax.set_xticklabels(labels, rotation=0, fontsize=fsize-2, ha='center')
     ax.set_ylabel('GMP-Cor', fontsize=fsize, labelpad=0)
     ax.set_yticks([0.2, 0.4, 0.6, 0.8])
     ax.tick_params(axis='both', which='major', labelsize=fsize-2)
-    ax.set_ylim([0.2, 0.8])
+    ax.set_ylim([0, 1])
     ax.set_xlim([positions[0] - gap_between_bars/2, positions[-1] + gap_between_bars/2])
 
 
@@ -279,14 +288,14 @@ plt.close("all")
 root_dir = os.path.dirname(os.path.dirname(os.getcwd()))
 pf = PanelFigure(figsize=(7, 6), label_offset=(0, 0.03))
 panel_pos = [
-    [0.08, 0.6, 0.5, 0.34],  # A
-    [0.08, 0.45, 0.25, 0.2],  # B
-    [0.42, 0.45, 0.25, 0.2],  # C
-    [0.08, 0.08, 0.25, 0.28],  # D
-    [0.42, 0.08, 0.25, 0.28],  # E
-    [0.74, 0.72, 0.25, 0.22],  # F
-    [0.74, 0.41, 0.25, 0.22],  # G
-    [0.74, 0.08, 0.25, 0.22],  # H
+    [0.075, 0.6, 0.5, 0.34],  # A
+    [0.075, 0.45, 0.24, 0.2],  # B
+    [0.4, 0.45, 0.24, 0.2],  # C
+    [0.075, 0.08, 0.24, 0.28],  # D
+    [0.4, 0.08, 0.24, 0.28],  # E
+    [0.7, 0.72, 0.275, 0.22],  # F
+    [0.7, 0.41, 0.275, 0.22],  # G
+    [0.7, 0.08, 0.275, 0.22],  # H
 ]
 # panel A:
 pf.add_panel(panel_pos[0], hide_axis=True)

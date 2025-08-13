@@ -161,11 +161,13 @@ def panel_E(ax):
     # Create bar plot graph from model fit:
     # load data
     dataset_values = os.path.join(root_dir, 'scripts', 'figures', 'figure3', 'dataset_summary_no_plasmid_genes.csv')
+    scrambled_values = os.path.join(root_dir, 'scripts', 'figures', 'figure3', 'scrambled_GMPcor.csv')
     # read data
     data = pd.read_csv(dataset_values)
+    scrambled = pd.read_csv(scrambled_values)
     samples = {'sample_2b', 'sample_15b', 'sample_15a'}
     labels = {'sample_2b': 'Exponential','sample_13b': 'Reg-Arrest', 'sample_15b': 'Reg-Arrest','sample_13a': 'Dis-Arrest', 'sample_15a': 'Dis-Arrest'}
-    colors = ["#9ecae1", "#9ecae1", "#a50f15"]
+    colors = ["#9ecae1", "#9ecae1", "#a50f15","#a50f15"]
     # get data for the samples
     data = data[data['sample'].isin(samples)]
     # sort data
@@ -180,7 +182,10 @@ def panel_E(ax):
     labels = list(sigma_dict.keys())
     means = [np.mean(values) for values in sigma_dict.values()]
     errors = [np.mean(values) for values in error_dict.values()]  # standard error
-
+    # add the scrambled values
+    labels.append('Scrambled')
+    means.append(scrambled['GMP-Cor'].mean())
+    errors.append(scrambled['GMP-Cor'].std() / np.sqrt(len(scrambled)))  # standard error
     ax.bar(labels, means, yerr=errors, capsize=5,
            color=colors, edgecolor='black', alpha=0.7, width=0.3)
 
@@ -189,13 +194,7 @@ def panel_E(ax):
     ax.set_xticks(range(len(labels)))
     ax.set_xticklabels(labels, rotation=25)
     ax.tick_params(axis='both', which='major', labelsize=fsize)
-    # Add significance annotation between 'A' and 'B'
-    # Perform t-test
-    #ttest = ttest_ind(sigma_dict['Reg-Arrest'], sigma_dict['Dis-Arrest'])
-    #x1, x2 = 1, 2  # positions of 'A' and 'B'
-    #y, h, col = max(means[x1] + errors[x1], means[x2] + errors[x2]) + 0.05, 0.05, 'black'
-    #ax.plot([x1, x1, x2, x2], [y, y + h, y + h, y], lw=1, c=col)
-    #ax.text((x1 + x2) / 2, y + h + 0.02, format_p(ttest.pvalue), ha='center', va='bottom', color=col)
+
 
 def panel_F(ax):
     path = os.path.join(root_dir, 'scripts', 'figures', 'figure3', 'dataset_summary_no_plasmid_genes.csv')
@@ -218,7 +217,7 @@ def panel_F(ax):
         mean_line.set_color(c)
         mean_line.set_linestyle('solid')
 
-    ax.set_xticklabels(['Reg-Arrest/\nExponential', 'Dis-Arrest'], fontsize=fsize, rotation=0, ha='center')
+    ax.set_xticklabels(['Non\nDis-Arrest', 'Dis-Arrest'], fontsize=fsize, rotation=0, ha='center')
     ax.set_ylabel('Enrichment score', fontsize=fsize, labelpad=0)
     ax.set_yticks([0.2, 0.4, 0.6, 0.8, 1])
     ax.set_ylim([0.2, 1])
