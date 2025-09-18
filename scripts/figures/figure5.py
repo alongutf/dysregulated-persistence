@@ -71,7 +71,7 @@ def panel_B(ax):
     t2_data = data[data['batch'] == 'T2']
     t5a_data = data[np.logical_or(data['batch'] == 'T5A', data['batch'] == 'T5B')]
     dis_data = data[data['batch'] == 'TON']
-    colors = ['#4393c3', '#92c5de', '#fddbc7', '#d6604d']
+    colors = ['#4393c3', '#f4a582', '#d6604d', '#b2182b']
     ax.scatter(exp_data.UMAP_1, exp_data.UMAP_2, color=colors[0], alpha=.8, s=.5, label='Exponential')
     ax.scatter(t2_data.UMAP_1, t2_data.UMAP_2, color=colors[1], alpha=.8, s=.5, label='VapC: 2h')
     ax.scatter(t5a_data.UMAP_1, t5a_data.UMAP_2, color=colors[2], alpha=.8, s=.5, label='VapC: 5h')
@@ -149,9 +149,9 @@ def panel_F(ax):
     data = data[data['sample'].isin(samples)]
     data['time'] = [20, 2, 5, 0]
     # sort data
-    colors = ['#4393c3', '#92c5de', '#fddbc7', '#d6604d',"#a50f15"]
+    colors = ['#4393c3', '#f4a582', '#d6604d', '#b2182b', "#bdbdbd"]
     data = data.sort_values('time', ascending=True)
-    bar_width = 0.2
+    bar_width = 0.25
     gap_between_bars = 0.4
     # add the scrambled values
     labels.append('Scrambled')
@@ -177,79 +177,82 @@ def panel_F(ax):
 
 
 def panel_G(ax):
-    # Load data
-    bar_data = pd.read_csv(os.path.join(os.path.join(root_dir, 'scripts', 'figures', 'figure5'), 'barplot_data.csv'))
-    bar_data['group'] = bar_data['Unnamed: 0'].apply(lambda x: x.split('_')[0])
-    bar_data['time'] = bar_data['Unnamed: 0'].apply(lambda x: x.split('_')[1])
-    bar_data['time'] = pd.Categorical(bar_data['time'], categories=["T2", "T24"], ordered=True)
-    bar_data['mean'] = bar_data['mean']/bar_data['OD']  # normalize by OD
-    bar_data['error'] = bar_data['error']/bar_data['OD']  # normalize by OD
-    # Sort for consistent plotting
-    df_sorted = bar_data.sort_values(['group', 'time'])
-    groups = df_sorted['group'].unique()
-    times = ['T2', 'T24']
-    colors = {"VAPC": "#a50f15", "CTRL": "#9ecae1"}
-    labels = ["Early\nReg", "Late\nReg", "Early\nVapC", "Late\nVapC"]
+    path = os.path.join(root_dir,'scripts','figures','figure5','normalizedOD_at_20h.csv')
+    data = pd.read_csv(path, header=0,
+                       index_col=0)
 
-    def get_pval(means, errors, n1, n2):
-        tstat = (means[1] - means[0]) / np.sqrt(errors[0] ** 2 / n1 + errors[1] ** 2 / n2)
-        df = n1 + n2 - 2
-        return 2 * t.sf(tstat, df)
+    data_dict = {}  # will hold (group_mean, group_SE) for plotting
+    bio_means = {}  # stores list of biological-replicate means per group (for tests)
 
-    n = 6
-    # T-tests
-    p_ctrl = get_pval(df_sorted.iloc[0:2]['mean'].to_numpy(), df_sorted.iloc[0:2]['error'].to_numpy(), n, n)
-    p_vapc = get_pval(df_sorted.iloc[2:4]['mean'].to_numpy(), df_sorted.iloc[2:4]['error'].to_numpy(), n, n)
+    for col in data.columns:
+        X = data[col].dropna().to_numpy()
+        means = []
+        errors = []
+        for i in range(int(len(X) / 2)):
+            biorep = X[2 * i:2 * i + 2]
+            means.append(np.mean(biorep))
+            errors.append(np.std(biorep, ddof=1) / np.sqrt(2))
+        bio_means[col] = means[:]  # keep biological-replicate means
 
-    # Significance formatting
-    def format_p(p):
-        if p < 0.0001:
-            return '****'
-        elif p < 0.001:
-            return '***'
-        elif p < 0.01:
-            return '**'
-        elif p < 0.05:
-            return '*'
+        # your original rule to choose SE (biological vs technical)
+        if np.std(means, ddof=1) < np.mean(errors):
+            data_dict[col] = (np.mean(means), np.mean(errors))
         else:
-            return 'ns'
+            data_dict[col] = (np.mean(means), np.std(means, ddof=1) / np.sqrt(len(means)))
 
-    # Bar positioning
-    bar_width = 0.15
-    gap_between_groups = 0.4
-    gap_between_bars = 0.15
-    positions = []
-    x_labels = []
-    bar_colors = []
+    # --- plotting ---
+    labels = list(data_dict.keys())
+    plot_colors = ['#2166ac', '#92c5de', '#f4a582', '#d6604d', '#b2182b']
 
-    for i, group in enumerate(groups):
-        for j, time in enumerate(times):
-            pos = i * (2 * bar_width + gap_between_groups) + j * (bar_width + gap_between_bars)
-            positions.append(pos)
-            x_labels.append(f"{group}\n{time}")
-            bar_colors.append(colors[group])
+    bar_means = [data_dict[col][0] for col in labels]
+    bar_errs = [data_dict[col][1] for col in labels]
+    bar_labels = ['Reg\n2h', 'Reg\n24h', 'VapC\n2h', 'VapC\n5h', 'VapC\n24h']
+    bars = ax.bar(bar_labels, bar_means, yerr=bar_errs, capsize=3,
+                  color=plot_colors[:len(labels)], alpha=0.8, edgecolor='black', width=0.4)
 
-    # Create bar plot
-    ax.bar(positions, df_sorted['mean'], yerr=df_sorted['error'], capsize=2.5,
-                  width=bar_width, color=bar_colors, alpha=0.7, edgecolor='black')
+    ax.set_ylabel('Normalized OD', fontsize=fsize, labelpad=0)
 
-    # Significance annotations
-    annotations = [format_p(p_ctrl), format_p(p_vapc)]  # VAPC and CTRL comparisons
-    for i in range(0, len(positions), 2):
-        x1, x2 = positions[i], positions[i + 1]
-        y1 = df_sorted.iloc[i]['mean'] + df_sorted.iloc[i]['error']
-        y2 = df_sorted.iloc[i + 1]['mean'] + df_sorted.iloc[i + 1]['error']
-        y = max(y1, y2) + 1000
-        ax.plot([x1, x1, x2, x2], [y, y + 400, y + 400, y], lw=1, c='black')
-        ax.text((x1 + x2) / 2, y + 500, annotations[i // 2], fontsize=fsize-2, ha='center', va='bottom')
-    # Final formatting
-    ax.set_xticks(positions)
-    ax.set_xticklabels(labels, fontsize=fsize)
-    ax.set_ylim([0, 60000])
-    ax.set_yticks([0, 20000, 40000, 60000])
-    ax.set_yticklabels([0,2,4,6])
-    ax.tick_params(axis='both', which='major', labelsize=fsize)
-    ax.set_ylabel(r"SYTOX blue (a.u.)", labelpad=0, fontsize=fsize)
+    ax.set_yscale('log')
+    ax.set_yticks([0.1,1])
+    ax.set_yticklabels(['0.1','1'])
+    ax.tick_params(axis='both', which='major', labelsize=fsize - 2)
+    ax.set_title('SDS added to culture', fontsize=fsize-2, pad=0)
+    ax.margins(y=0.2)  # add headroom for significance caps
+
+    # --- significance helpers ---
+    def get_pval(means, errors, n1, n2):
+        tstat = (means[0] - means[1]) / np.sqrt(errors[0] ** 2 + errors[1] ** 2)
+        df = n1 + n2 - 2
+        return t.sf(tstat, df)
+
+    def p_to_stars(p):
+        if np.isnan(p):   return 'n.s.'
+        if p < 1e-4:      return '****'
+        if p < 1e-3:      return '***'
+        if p < 0.01:      return '**'
+        if p < 0.05:      return '*'
+        return 'n.s.'
+
+    def add_sig_between(ax, bar1, bar2, text, y_mult=1.15, cap_mult=1.02, text_mult=1.01):
+        x1 = bar1.get_x() + bar1.get_width() / 2
+        x2 = bar2.get_x() + bar2.get_width() / 2
+        y_base = max(bar1.get_height(), bar2.get_height())
+        y = y_base * y_mult
+        y_cap = y * cap_mult
+        ax.plot([x1, x1, x2, x2], [y, y_cap, y_cap, y], lw=1, c='black')
+        ax.text((x1 + x2) / 2, y_cap * text_mult, text, ha='center', va='bottom', fontsize=fsize-2)
+
+    # --- compute Welch t-tests between neighbor bars and annotate ---
+    for i in range(len(labels) - 1):
+        g1, g2 = labels[i], labels[i + 1]
+        means = [data_dict[g1][0], data_dict[g2][0]]
+        errors = [data_dict[g1][1], data_dict[g2][1]]
+
+        # Welch t-test on biological-replicate means (needs n>=2 ideally)
+        p = get_pval(means, errors, len(bio_means[g1]), len(bio_means[g2]))
+        print(p)
+        add_sig_between(ax, bars[i], bars[i + 1], p_to_stars(p), y_mult=1.25)
+
 
 
 def panel_H(ax):
@@ -265,18 +268,18 @@ def panel_H(ax):
         path = os.path.join(root_dir, 'scripts', 'figures', 'figure5', condition + '.csv')
         data[condition] = pd.read_csv(path, index_col=False, header=None).to_numpy()
     # plot histograms of lag time
-    edges = np.linspace(0, 700, 51)
+    edges = np.linspace(600, 1400, 51)
     for i, condition in enumerate(conditions):
-        x = data[condition].flatten() + 100
+        x = data[condition].flatten() + 700
         ax.hist(x, bins=edges, color=colors[i], histtype='stepfilled', edgecolor='k', alpha=0.5, label=labels[i],
                  density=True)
     ax.set_xlabel('Lag time (min)', fontsize=fsize)
     ax.set_ylabel(r'Frequency', labelpad=0, fontsize=fsize)
-    ax.text(10, 0.0175, r'$\times{10}^{-2}$', fontsize=fsize - 3)
+    ax.text(610, 0.0175, r'$\times{10}^{-2}$', fontsize=fsize - 3)
     # set axis label size
     ax.legend(fontsize=fsize-2)
-    ax.set_xlim([0, 700])
-    ax.set_xticks([0, 200, 400, 600])
+    ax.set_xlim([600, 1400])
+    ax.set_xticks([600, 1000, 1400])
     ax.set_yticks([0, 0.01, 0.02])
     ax.set_yticklabels([0, 1, 2])
     ax.tick_params(axis='both', which='major', labelsize=fsize)
