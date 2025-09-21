@@ -268,18 +268,18 @@ def panel_H(ax):
         path = os.path.join(root_dir, 'scripts', 'figures', 'figure5', condition + '.csv')
         data[condition] = pd.read_csv(path, index_col=False, header=None).to_numpy()
     # plot histograms of lag time
-    edges = np.linspace(600, 1400, 51)
+    edges = np.linspace(300, 1100, 51)
     for i, condition in enumerate(conditions):
-        x = data[condition].flatten() + 700
+        x = data[condition].flatten() + 400
         ax.hist(x, bins=edges, color=colors[i], histtype='stepfilled', edgecolor='k', alpha=0.5, label=labels[i],
                  density=True)
     ax.set_xlabel('Lag time (min)', fontsize=fsize)
     ax.set_ylabel(r'Frequency', labelpad=0, fontsize=fsize)
-    ax.text(610, 0.0175, r'$\times{10}^{-2}$', fontsize=fsize - 3)
+    ax.text(310, 0.0175, r'$\times{10}^{-2}$', fontsize=fsize - 3)
     # set axis label size
     ax.legend(fontsize=fsize-2)
-    ax.set_xlim([600, 1400])
-    ax.set_xticks([600, 1000, 1400])
+    ax.set_xlim([300, 1100])
+    ax.set_xticks([300, 700, 1100])
     ax.set_yticks([0, 0.01, 0.02])
     ax.set_yticklabels([0, 1, 2])
     ax.tick_params(axis='both', which='major', labelsize=fsize)

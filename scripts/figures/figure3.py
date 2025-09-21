@@ -167,7 +167,7 @@ def panel_E(ax):
     scrambled = pd.read_csv(scrambled_values)
     samples = {'sample_2b', 'sample_15b', 'sample_15a'}
     labels = {'sample_2b': 'Exponential','sample_13b': 'Reg-Arrest', 'sample_15b': 'Reg-Arrest','sample_13a': 'Dis-Arrest', 'sample_15a': 'Dis-Arrest'}
-    colors = ["#9ecae1", "#9ecae1", "#a50f15","#a50f15"]
+    colors = ["#9ecae1", "#9ecae1", "#a50f15","#bdbdbd"]
     # get data for the samples
     data = data[data['sample'].isin(samples)]
     # sort data

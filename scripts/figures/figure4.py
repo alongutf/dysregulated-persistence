@@ -329,7 +329,7 @@ def panel_C(ax):
 def panel_D(ax):
     data_dir = os.path.join(root_dir, 'scanlag_data', 'bulk time in shx')
     x_min = 900
-    x_max = 4000
+    x_max = 3000
     cmap = plt.get_cmap('Reds')
     v_min = -400
     v_max = 2200
@@ -365,8 +365,8 @@ def panel_D(ax):
     ax.set_xscale('log')
     ax.set_yscale('log')
     ax.set_xlim(x_min, x_max)
-    ax.set_xticks([1000, 2000, 3000, 4000])
-    ax.set_xticklabels([1000, 2000, '', 4000])
+    ax.set_xticks([1000, 2000, 3000])
+    ax.set_xticklabels([1000, 2000, ''])
     # set tick fontsize
     ax.tick_params(axis='both', which='major', labelsize=fsize - 2)
     ax.set_ylim(0.0005, 2)

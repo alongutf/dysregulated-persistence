@@ -129,7 +129,7 @@ def panel_A(axes):
         # make the spines wider
         ax.spines['left'].set_linewidth(lw)
         ax.spines['bottom'].set_linewidth(lw)
-        ax.set_xlabel('Time', fontsize=fsize - 3, labelpad=3)
+        ax.set_xlabel('Lag time', fontsize=fsize - 3, labelpad=3)
         ax.set_ylabel('Probability', fontsize=fsize - 3, labelpad=2)
         ax.set_xticks([])  # remove ticks
         ax.set_yticks([])
