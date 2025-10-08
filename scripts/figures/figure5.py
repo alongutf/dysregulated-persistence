@@ -233,9 +233,9 @@ def panel_G(ax):
         if p < 0.05:      return '*'
         return 'n.s.'
 
-    def add_sig_between(ax, bar1, bar2, text, y_mult=1.15, cap_mult=1.02, text_mult=1.01):
-        x1 = bar1.get_x() + bar1.get_width() / 2
-        x2 = bar2.get_x() + bar2.get_width() / 2
+    def add_sig_between(ax, bar1, bar2, text, y_mult=1.2, cap_mult=1.1, text_mult=1.01):
+        x1 = bar1.get_x() + bar1.get_width() * 0.6
+        x2 = bar2.get_x() + bar2.get_width() * 0.4
         y_base = max(bar1.get_height(), bar2.get_height())
         y = y_base * y_mult
         y_cap = y * cap_mult
@@ -251,7 +251,7 @@ def panel_G(ax):
         # Welch t-test on biological-replicate means (needs n>=2 ideally)
         p = get_pval(means, errors, len(bio_means[g1]), len(bio_means[g2]))
         print(p)
-        add_sig_between(ax, bars[i], bars[i + 1], p_to_stars(p), y_mult=1.25)
+        add_sig_between(ax, bars[i], bars[i + 1], p_to_stars(p), y_mult=1.3, cap_mult=1.2)
 
 
 

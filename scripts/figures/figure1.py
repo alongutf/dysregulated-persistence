@@ -20,7 +20,7 @@ def panel_C(ax):
     groups = ['Reg-Arrest', 'Dis-Arrest']
     avg_cols = [f"{g}_avg" for g in groups]
     err_cols = [f"{g}_err" for g in groups]
-    labels = ['Short lag', 'Long lag\n(Dis-Arrest)']
+    labels = ['Short lag', 'Long lag']
     # Define custom x positions to cluster related groups
     x_positions = [0.2, 0.6]
     group_values = [df[col].dropna().values for col in avg_cols]
@@ -94,11 +94,7 @@ def panel_A(axes):
     axes[0, 1].plot(x, 0.67 + sigmoid(x - 0.2, 10, 4, 0.7), color=green, linewidth=lw+1)
     # Plot the disrupted sigmoid function
     axes[1, 1].plot(x, 0.705 + sigmoid(x - 0.65, 10, 4, 0.7), color=red, linewidth=lw+1)
-    axes[1, 1].annotate(
-        '', xy=(0.1, 0.57), xytext=(0.7, 0.57),
-        arrowprops=dict(arrowstyle='<->', color='k', lw=lw)
-    )
-    axes[1, 1].text(0.1, 0.26, 'Average\nlag', fontsize=fsize-2, color='k')
+
     for ax in axes[:, 1]:
         ax.spines['top'].set_visible(False)
         ax.spines['right'].set_visible(False)

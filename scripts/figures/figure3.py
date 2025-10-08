@@ -217,7 +217,7 @@ def panel_F(ax):
         mean_line.set_color(c)
         mean_line.set_linestyle('solid')
 
-    ax.set_xticklabels(['Non\nDis-Arrest', 'Dis-Arrest'], fontsize=fsize, rotation=0, ha='center')
+    ax.set_xticklabels(['Regulated', 'Dis-Arrest'], fontsize=fsize, rotation=0, ha='center')
     ax.set_ylabel('Enrichment score', fontsize=fsize, labelpad=0)
     ax.set_yticks([0.2, 0.4, 0.6, 0.8, 1])
     ax.set_ylim([0.2, 1])
