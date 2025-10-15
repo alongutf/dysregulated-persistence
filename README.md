@@ -40,6 +40,6 @@ Notebooks for different pipelines are available in scripts:
 - random_matrices.ipynb: generate random Wishart matrices with non-diagonal covariance - to compare with the GMP model.
 - scanpy_analysis.ipynb: perform UMAP dimensionality reduction, marker gene analysis and further analysis of the single-cell data.
 - supplementary figures.ipynb: generates additional figures that are not presented in the main text.
-- sytox_experiment.ipynb: retrieves and analyzes the microplate reader data from the SYTOX blue membrane permeability experiment
+- SDS_experiment.ipynb: retrieves and analyzes the plate reader data from the SDS sensitivity experiment
 ---
 
