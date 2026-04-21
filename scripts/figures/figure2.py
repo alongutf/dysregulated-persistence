@@ -277,5 +277,5 @@ pf.add_panel(panel_pos[3], draw_func=panel_D)
 pf.add_panel(panel_pos[4], draw_func=panel_E)
 # panel F:
 pf.add_panel(panel_pos[5], draw_func=panel_F)
-pf.save("figure2.svg", dpi=300)
+#pf.save("figure2.svg", dpi=300)
 plt.show()

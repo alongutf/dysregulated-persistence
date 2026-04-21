@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 from numpy import linalg as la
 from sklearn.decomposition import SparsePCA
-
+from scipy.stats import rankdata
 
 def scramble(m):
     # Scramble the column indices in each row of a matrix m
@@ -19,6 +19,10 @@ def normalize(m, method='norm', target_sum=1):
     else:
         m = target_sum*m / la.norm(m, axis=1)[:, None]
     m[np.isnan(m)] = 0
+    return m
+
+def spearman_ranking(m):
+    m = np.array([rankdata(row) for row in m.T]).T
     return m
 
 
@@ -54,17 +58,25 @@ def get_eig_dist(m, norm=True, log=False, norm_method='sum', norm_sum=1):
     # get the eigenvalue distribution of the normalized matrix m
     # scramble the matrix m, and get the eigenvalue distribution of the normalized matrix
     #m = log_transform(m)  # z-transform the matrix m
+
     if norm:
         m = normalize(m, method=norm_method, target_sum=norm_sum)  # normalize the rows of the matrix m
+    #   m1 = normalize(m1, method=norm_method, target_sum=norm_sum)
     if log:
         m = log_transform(m)  # log-transform the matrix m
+    #    m1 = log_transform(m1)
     m = z_transform(m)
+
     m1 = m.copy()  # copy the matrix m for scrambling
-    pcs = get_pcs(m)  # get the principal components of the matrix m
+    #m1 = z_transform(m1)  # z-transform the matrix m1
     m1 = scramble(m1)  # scramble the matrix m
-    m1 = z_transform(m1) # z-transform the matrix m1
+
+
+    pcs = get_pcs(m)  # get the principal components of the matrix m
+
+
     pcs1 = get_pcs(m1)  # get the principal components of the matrix m1
-    return pcs, pcs1
+    return pcs, pcs1, m
 
 
 def mp_distribution(x, a):

@@ -392,5 +392,5 @@ pf.add_panel(panel_pos[1], draw_func=panel_B, label="B")
 pf.add_panel(panel_pos[2], draw_func=panel_C, label="C")
 # panel D:
 pf.add_panel(panel_pos[3], draw_func=panel_D, label="D")
-pf.save("figure4.pdf", dpi=300)
+pf.save("figure4.svg", dpi=300, transparent=True)
 plt.show()
