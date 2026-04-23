@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+from numba.np.arraymath import np_average
 from numpy import linalg as la
 from sklearn.decomposition import SparsePCA
 from scipy.stats import rankdata
@@ -8,7 +9,7 @@ def scramble(m):
     # Scramble the column indices in each row of a matrix m
     m = np.array([np.random.permutation(row) for row in m])
     # Scramble the row indices in each column of a matrix m
-    m = np.array([np.random.permutation(row) for row in m.T]).T
+    #m = np.array([np.random.permutation(row) for row in m.T]).T
     return m
 
 
@@ -58,7 +59,7 @@ def get_eig_dist(m, norm=True, log=False, norm_method='sum', norm_sum=1):
     # get the eigenvalue distribution of the normalized matrix m
     # scramble the matrix m, and get the eigenvalue distribution of the normalized matrix
     #m = log_transform(m)  # z-transform the matrix m
-
+    rep=10
     if norm:
         m = normalize(m, method=norm_method, target_sum=norm_sum)  # normalize the rows of the matrix m
     #   m1 = normalize(m1, method=norm_method, target_sum=norm_sum)
@@ -66,16 +67,18 @@ def get_eig_dist(m, norm=True, log=False, norm_method='sum', norm_sum=1):
         m = log_transform(m)  # log-transform the matrix m
     #    m1 = log_transform(m1)
     m = z_transform(m)
+    pcs1 = np.zeros(m.shape[1])
+    for _ in range(rep):
+        m1 = m.copy()  # copy the matrix m for scrambling
 
-    m1 = m.copy()  # copy the matrix m for scrambling
-    #m1 = z_transform(m1)  # z-transform the matrix m1
-    m1 = scramble(m1)  # scramble the matrix m
-
-
+        m1 = scramble(m1)  # scramble the matrix m
+#        m1 = z_transform(m1)  # z-transform the matrix m1
+        pcs1 += get_pcs(m1)  # get the principal components of the matrix m1
+    pcs1 = pcs1 / rep
     pcs = get_pcs(m)  # get the principal components of the matrix m
 
 
-    pcs1 = get_pcs(m1)  # get the principal components of the matrix m1
+
     return pcs, pcs1, m
 
 
@@ -88,3 +91,10 @@ def mp_distribution(x, a):
     else:
         f = 0
     return f
+
+def get_entropy(pcs):
+    p = len(pcs)
+    P = pcs / p
+    P = P[P > 0]
+    return np.exp(-np.sum(P * np.log(P[P > 0])))
+

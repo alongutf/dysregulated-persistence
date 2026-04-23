@@ -1,0 +1,16 @@
+"",file_name,max_ev,max_ev_scrambled,eig_diff,sum_denoised_ev,category
+0,adam_matrix_filtered.csv,11.249618,9.446716,1.802902,21.075094,r
+1,Expira_biorep_t0A_filtered.csv,17.158693,12.509933,4.648759,32.642886,r
+2,sample_13a_filtered.csv,8.242494,7.309854,0.932640,8.242494,d
+3,sample_13b_filtered.csv,14.258587,9.657831,4.600756,26.351555,r
+4,sample_15a_filtered.csv,6.094979,5.981719,0.113260,6.094979,d
+5,sample_15b_filtered.csv,17.281707,12.248134,5.033573,17.281707,r
+6,sample_2b_filtered.csv,19.408976,8.734108,10.674867,28.933420,r
+7,SHX_biorep2A.csv,9.502631,7.208470,2.294161,32.758251,d
+8,SHX_biorep2B.csv,7.650878,6.315339,1.335539,20.602589,d
+9,SHX_biorep4A.csv,8.332470,5.844224,2.488246,20.941054,d
+10,SHX_biorep6A.csv,9.054607,6.292061,2.762546,22.014124,d
+11,VapC_biorep_t2A_filtered.csv,14.627573,11.781743,2.845829,14.627573,r
+12,VapC_biorep_t5A_filtered.csv,12.060115,7.692218,4.367897,12.060115,r
+13,VapC_biorep_t5B_filtered.csv,30.001676,13.168470,16.833206,30.001676,r
+14,VapC_biorep_tONA_filtered.csv,10.245888,6.040430,4.205458,10.245888,d
