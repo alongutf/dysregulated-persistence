@@ -60,6 +60,14 @@ def get_eig_dist(m, norm=True, log=False, norm_method='sum', norm_sum=1):
     # scramble the matrix m, and get the eigenvalue distribution of the normalized matrix
     #m = log_transform(m)  # z-transform the matrix m
     rep=10
+    # remove zero genes:
+    gene_sums = (m>0).sum(axis=0)
+    min_cells = 1
+    m = m[:,gene_sums >= min_cells]
+    min_genes = 1
+    cell_sums = (m>0).sum(axis=1)
+    m = m[cell_sums >= min_genes,:]
+    fraction_non_zero = np.sum(m.flatten()>0)/len(m.flatten())
     if norm:
         m = normalize(m, method=norm_method, target_sum=norm_sum)  # normalize the rows of the matrix m
     #   m1 = normalize(m1, method=norm_method, target_sum=norm_sum)
@@ -76,10 +84,10 @@ def get_eig_dist(m, norm=True, log=False, norm_method='sum', norm_sum=1):
         pcs1 += get_pcs(m1)  # get the principal components of the matrix m1
     pcs1 = pcs1 / rep
     pcs = get_pcs(m)  # get the principal components of the matrix m
+    print(m.shape)
 
 
-
-    return pcs, pcs1, m
+    return pcs, pcs1, fraction_non_zero
 
 
 def mp_distribution(x, a):
