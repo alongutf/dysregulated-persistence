@@ -7,7 +7,7 @@ from scipy.stats import rankdata
 
 def scramble(m):
     # Scramble the column indices in each row of a matrix m
-    m = np.array([np.random.permutation(row) for row in m])
+    #m = np.array([np.random.permutation(row) for row in m])
     # Scramble the row indices in each column of a matrix m
     m = np.array([np.random.permutation(row) for row in m.T]).T
     return m
