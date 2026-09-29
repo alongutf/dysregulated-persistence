@@ -1,11 +1,11 @@
 # dysregulated-persistence
 This repository contains the code and data used in our paper:
 
-**"Genome-wide Dysregulation in Antibiotic Tolerance and Persistence"**  
+**"GMP-Cor: Quantifying Transcriptional Dysregulation in Antibiotic Tolerance and Persistence"**  
 # 
 ## 📌 Overview
 
-We present a computational framework to quantify the global correlation strength and level of dysregulation in bacterial cells under acute stress. We assess gene correlations by calculating the correlation spectrum of the experimental data and comparing it to our theoretical model - the Generalized Marchenko-Pastur (GMP) distribution.<br>
+We present a computational framework to quantify the global correlation strength and level of dysregulation in bacterial cells under acute stress. We assess gene correlations by calculating the correlation spectrum of the experimental data and comparing it to our theoretical model - the Generalized Marchenko-Pastur (GMP) distribution and simulated data.<br>
 This repository includes:
 - Code for reproducing all main figures
 - Scripts for RNA-seq preprocessing and gene correlation analysis
@@ -28,10 +28,12 @@ import src.data_functions as df
 import src.analysis_functions as af
 import src.bulk_functions as bf
 import src.reader_functions as rf
+import src.simulations
 ```
 ## 🛠️ Usage
 All figures can be generated using the corresponding figureX.py file in scripts/figures.<br>
 Genome files and scripts for mapping the scRNA-seq reads are located in scripts/RNA-seq mapping.<br>
+Functions for the synthetic data simulator are contained in src/simulations.py
 Notebooks for different pipelines are available in scripts:
 - analysis_notebook.ipynb: initial processing, including transformation of probe count data to cell-gene count matrices, cell calling, gene filtering and calculation of correlation eigenvalues.
 - bulk_analysis.ipynb: analysis of the bulk RNA-seq data, including differential gene analysis, GO enrichment analysis and data processing.
