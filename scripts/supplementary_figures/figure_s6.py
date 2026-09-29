@@ -1,0 +1,292 @@
+"""
+Supplementary Figure S6 — Microscopy characterisation of Dis-Arrest vs Reg-Arrest cells.
+
+Panels:
+  A. Violin plot of cell length distributions (µm) for exponential cells and
+     the four arrest conditions (SHX⁺, SHX⁻, VapC⁺ 24h, VapC⁻). All groups are
+     randomly subsampled to the size of the smallest group. Mean and CV
+     annotated per condition.
+  B. Violin plot of constitutive mCherry expression, VapC⁺ 24h vs VapC⁻,
+     in the same format and colours as panel A. Mean, n and CV annotated
+     per condition.
+  C. Single row of representative phase/fluorescence images, one per condition
+     in the same order (and with the same labels) as panel A.
+     (built by the panel_D() function below, but placed on the figure as
+     panel label "C" -- the function name and the on-figure label disagree)
+
+Run from this directory:
+    cd scripts/supplementary_figures
+    python figure_s6.py
+The figure is written next to this script as figure_s6.pdf.
+"""
+import os
+import sys
+
+_HERE = os.path.dirname(os.path.abspath(__file__))
+_REPO = os.path.dirname(os.path.dirname(_HERE))
+# scripts/supplementary_figures is two levels below the repo root; make both the
+# repo root (for `src`, if ever needed) and scripts/figures (for figure_functions)
+# importable regardless of the caller's cwd
+sys.path.insert(0, _REPO)
+sys.path.insert(0, os.path.join(_REPO, 'scripts', 'figures'))
+
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import matplotlib.image as mpimg
+from matplotlib.patches import FancyBboxPatch
+
+from figure_functions import PanelFigure
+
+# ------------------------------------------------------------------
+# Global style
+# ------------------------------------------------------------------
+fsize = 10
+plt.close("all")
+
+MICR_DIR = os.path.join(_REPO, 'microscopy')
+IMG_DIR  = os.path.join(MICR_DIR, 'images')
+
+# Condition colours (dis-arrest warm, reg-arrest cool)
+DIS_COLOR = '#E07B54'
+REG_COLOR = 'steelblue'
+EXP_COLOR = '#045a8d'
+
+# Microscope calibration and subsampling
+PX_PER_UM = 15.15   # pixel -> micron conversion factor for this microscope/objective
+RNG_SEED = 42        # fixed seed so panel A's random subsampling is reproducible
+
+# ------------------------------------------------------------------
+# Load and filter data
+# ------------------------------------------------------------------
+vapc = pd.read_csv(os.path.join(MICR_DIR, 'all_positions_vapc.csv'))
+shx  = pd.read_csv(os.path.join(MICR_DIR, 'all_positions_shx.csv'))
+exp  = pd.read_csv(os.path.join(MICR_DIR, 'all_positions_exp.csv'))
+
+# 'kept' is a per-cell QC flag (e.g. segmentation/focus checks) set upstream during
+# image analysis; only cells that passed it are used here
+vapc_filt = vapc[vapc['kept'] == True].copy()
+shx_filt  = shx[shx['kept'] == True].copy()
+exp_filt  = exp[exp['kept'] == True].copy()
+exp_filt['label'] = 'Exponential'
+
+# SHX: 'SHX' -> Dis-Arrest, 'CASP' -> Reg-Arrest
+shx_filt = shx_filt.copy()
+shx_filt['label'] = shx_filt['condition'].map({'SHX': 'Dis-Arrest (SHX)', 'CASP': 'Reg-Arrest (SHX)'})
+
+# VapC: 'VapC' -> Dis-Arrest, 'Reg-Arrest' -> Reg-Arrest
+vapc_filt = vapc_filt.copy()
+vapc_filt['label'] = vapc_filt['condition'].map({'VapC': 'VapC 24h', 'Reg-Arrest': 'Reg-Arrest (VapC)'})
+
+# Ordered groups for panel A (data keys) and their display labels
+PANEL_A_ORDER = ['Exponential', 'Dis-Arrest (SHX)', 'Reg-Arrest (SHX)', 'VapC 24h', 'Reg-Arrest (VapC)']
+PANEL_A_LABELS = ['Exponential', 'SHX$^+$', 'SHX$^-$\n(Reg-Arrest)', 'VapC$^+$ 24h', 'VapC$^-$\n(Reg-Arrest)']
+PANEL_A_COLORS = [EXP_COLOR, DIS_COLOR, REG_COLOR, DIS_COLOR, REG_COLOR]
+
+# Panel B keeps the VapC pair in the same order, labels and colours as in panel A
+PANEL_B_ORDER = ['VapC 24h', 'Reg-Arrest (VapC)']
+PANEL_B_LABELS = ['VapC$^+$ 24h', 'VapC$^-$']
+PANEL_B_COLORS = [DIS_COLOR, REG_COLOR]
+
+# Cell length in µm, all groups subsampled to the size of the smallest group
+length_data = {
+    'Exponential':       exp_filt['length_px'].values / PX_PER_UM,
+    'Dis-Arrest (SHX)':  shx_filt.loc[shx_filt['label'] == 'Dis-Arrest (SHX)',  'length_px'].values / PX_PER_UM,
+    'Reg-Arrest (SHX)':  shx_filt.loc[shx_filt['label'] == 'Reg-Arrest (SHX)',  'length_px'].values / PX_PER_UM,
+    'VapC 24h':          vapc_filt.loc[vapc_filt['label'] == 'VapC 24h',          'length_px'].values / PX_PER_UM,
+    'Reg-Arrest (VapC)': vapc_filt.loc[vapc_filt['label'] == 'Reg-Arrest (VapC)', 'length_px'].values / PX_PER_UM,
+}
+
+# subsample every group down to the size of the smallest one so the violin shapes
+# (and the mean/CV annotations) are not distorted by unequal sample sizes
+N_SUBSAMPLE = min(len(v) for v in length_data.values())
+_rng = np.random.default_rng(RNG_SEED)
+length_data = {k: _rng.choice(v, size=N_SUBSAMPLE, replace=False)
+               for k, v in length_data.items()}
+
+# background-subtracted per-cell median mCherry intensity, VapC+ vs VapC- (panel B).
+# not subsampled to N_SUBSAMPLE like length_data -- panel B compares the two groups
+# directly on their own counts
+mcherry_data = {
+    'VapC 24h': vapc_filt.loc[vapc_filt['label'] == 'VapC 24h', 'mcherry_bgsub_median'].values,
+    'Reg-Arrest (VapC)': vapc_filt.loc[vapc_filt['label'] == 'Reg-Arrest (VapC)', 'mcherry_bgsub_median'].values,
+}
+
+# background-subtracted per-cell median YFP intensity, Dis-Arrest vs Reg-Arrest
+# (SHX). computed but not plotted by any panel below -- currently dead.
+yfp_data = {
+    'Dis-Arrest (SHX)': shx_filt.loc[shx_filt['label'] == 'Dis-Arrest (SHX)', 'yfp_bgsub_median'].values,
+    'Reg-Arrest (SHX)': shx_filt.loc[shx_filt['label'] == 'Reg-Arrest (SHX)', 'yfp_bgsub_median'].values,
+}
+
+
+# ------------------------------------------------------------------
+# Helper: annotated violin plot
+# ------------------------------------------------------------------
+def _violin(ax, data_dict, order, colors, ylabel, title, fsize):
+    """Violin plot with IQR bar, median dot, and a mean/CV label pinned to the top
+
+    of the axes (not the top of each violin). Superseded by _violin_with_stats
+    below (which places the label above each violin's own data) and is not
+    called by any panel in this file; kept here for reference/reuse.
+    """
+    datasets = [data_dict[k] for k in order]
+
+    parts = ax.violinplot(datasets, positions=range(len(order)),
+                          showmedians=False, showextrema=False)
+    for pc, col in zip(parts['bodies'], colors):
+        pc.set_facecolor(col)
+        pc.set_edgecolor('0.3')
+        pc.set_alpha(0.75)
+
+    for i, (key, vals) in enumerate(zip(order, datasets)):
+        q25, q75 = np.percentile(vals, [25, 75])
+        med = np.median(vals)
+        ax.plot([i, i], [q25, q75], color='0.2', lw=2, solid_capstyle='round')
+        ax.plot(i, med, 'o', color='white', markeredgecolor='0.2',
+                markersize=4, zorder=3)
+
+        mean_val = vals.mean()
+        cv_val   = vals.std() / mean_val if mean_val != 0 else float('nan')
+        ax.text(i, ax.get_ylim()[1] if ax.get_ylim()[1] != 0 else 1,
+                f'μ={mean_val:.0f}\nCV={cv_val:.2f}',
+                ha='center', va='bottom', fontsize=fsize - 4,
+                transform=ax.get_xaxis_transform())
+
+    ax.set_xticks(range(len(order)))
+    ax.set_xticklabels(order, fontsize=fsize - 2)
+    ax.set_ylabel(ylabel, fontsize=fsize - 1, labelpad=2)
+    ax.set_title(title, fontsize=fsize)
+    ax.tick_params(axis='y', labelsize=fsize - 2)
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+
+
+def _violin_with_stats(ax, data_dict, order, colors, ylabel, title, xlabels=None, fmt='.0f', show_n=True):
+    """Violin plot (one violin per key in `order`) with an IQR bar, a median dot,
+
+    and a per-violin text block (n, mean, CV) placed just above that violin's own
+    maximum -- so labels never overlap the data even when the groups have very
+    different spreads. `data_dict` maps group key -> 1-D array of values; `fmt`
+    controls the number format used for the mean in the annotation.
+    """
+    datasets = [data_dict[k] for k in order]
+
+    parts = ax.violinplot(datasets, positions=range(len(order)),
+                          showmedians=False, showextrema=False)
+    for pc, col in zip(parts['bodies'], colors):
+        pc.set_facecolor(col)
+        pc.set_edgecolor('0.3')
+        pc.set_alpha(0.75)
+
+    # IQR bars + median dot
+    for i, vals in enumerate(datasets):
+        q25, q75 = np.percentile(vals, [25, 75])
+        med = np.median(vals)
+        ax.plot([i, i], [q25, q75], color='0.2', lw=2, solid_capstyle='round')
+        ax.plot(i, med, 'o', color='white', markeredgecolor='0.2',
+                markersize=4, zorder=3)
+
+    ax.set_xticks(range(len(order)))
+    ax.set_xticklabels(xlabels if xlabels is not None else order, fontsize=fsize - 2)
+    ax.set_ylabel(ylabel, fontsize=fsize - 1, labelpad=2)
+    ax.tick_params(axis='y', labelsize=fsize - 2)
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+
+    # Place stats just above each violin's own maximum
+    ymin, ymax_auto = ax.get_ylim()
+    y_pad = (ymax_auto - ymin) * 0.04   # small gap above violin top
+
+    # Expand ylim to accommodate two lines of annotation text (~25% extra)
+    text_top = max(np.max(v) for v in datasets) + (ymax_auto - ymin) * 0.40
+    ax.set_ylim(ymin, text_top)
+
+    for i, (key, vals) in enumerate(zip(order, datasets)):
+        mean_val = vals.mean()
+        cv_val   = vals.std() / mean_val if mean_val != 0 else float('nan')
+        stats = f'mean={mean_val:{fmt}}\nCV={cv_val:.2f}'
+        if show_n:
+            stats = f'n={len(vals)}\n' + stats
+        ax.text(i, np.max(vals) + y_pad, stats,
+                ha='center', va='bottom', fontsize=fsize - 4)
+
+    ax.set_title(title, fontsize=fsize, pad=4)
+
+
+# ==================================================================
+# Panels
+# ==================================================================
+def panel_A(ax):
+    """Violin plot of cell length (um), all five groups subsampled to equal n."""
+    _violin_with_stats(ax, length_data, PANEL_A_ORDER, PANEL_A_COLORS,
+                       'Cell length (µm)', 'Cell length distributions',
+                       xlabels=PANEL_A_LABELS, fmt='.2f', show_n=False)
+
+
+def panel_B(ax):
+    """Violin plot of constitutive mCherry expression, VapC⁺ 24h vs VapC⁻."""
+    _violin_with_stats(ax, mcherry_data, PANEL_B_ORDER, PANEL_B_COLORS,
+                       'mCherry (arbitrary units)', 'Promoter activity',
+                       xlabels=PANEL_B_LABELS)
+
+
+def panel_D(ax):
+    """Single row of 4 microscopy images in the same order as panel A."""
+    images = [
+        ('shx2.png',      'SHX$^+$',       DIS_COLOR),
+        ('shx_reg1.png',  'SHX$^-$',       REG_COLOR),
+        ('vapc.png',     'VapC$^+$ 24h',  DIS_COLOR),
+        ('vapc_reg1.png', 'VapC$^-$',      REG_COLOR),
+    ]
+
+    n = len(images)
+    # layout of the n image tiles as fractions of the panel axes (0-1 in both
+    # directions): fixed tile width/gap, with the leftover space split evenly
+    # into the two outer margins so the row of tiles is centred
+    w = 0.22
+    gap = 0.025
+    margin = (1.0 - n * w - (n - 1) * gap) / 2
+    y0 = 0.13
+    h = 0.80
+
+    ax.set_axis_off()
+    for i, (fname, label, lc) in enumerate(images):
+        img_path = os.path.join(IMG_DIR, fname)
+        img = mpimg.imread(img_path)
+        if img.ndim == 3:
+            # luminance-weighted RGB -> grayscale (standard Rec.601 coefficients),
+            # so colour fluorescence composites are shown as plain phase-like images
+            img_gray = np.dot(img[..., :3], [0.2989, 0.5870, 0.1140])
+        else:
+            img_gray = img
+        x0 = margin + i * (w + gap)
+        sub = ax.inset_axes([x0, y0, w, h])
+        sub.imshow(img_gray, cmap='gray', aspect='equal')
+        sub.set_xticks([]); sub.set_yticks([])
+        for spine in sub.spines.values():
+            spine.set_edgecolor(lc)
+            spine.set_linewidth(2)
+        ax.text(x0 + w / 2, y0 - 0.04, label,
+                transform=ax.transAxes,
+                ha='center', va='top', fontsize=fsize - 2, color=lc)
+
+
+# ------------------------------------------------------------------
+# Assemble
+# ------------------------------------------------------------------
+# panel coordinates are [left, bottom, width, height] in normalized figure space
+pf = PanelFigure(figsize=(7, 5), label_offset=(-0.04, 0.04))
+
+# Row 1: panel A (narrower, area violins) + panel B (mCherry histogram)
+pf.add_panel([0.08, 0.62, 0.52, 0.30], draw_func=panel_A, label='A')
+pf.add_panel([0.70, 0.62, 0.26, 0.30], draw_func=panel_B, label='B')
+
+# Row 2: panel D — microscopy images (single row)
+pf.add_panel([0.1, 0.1, 0.8, 0.4], draw_func=panel_D, hide_axis=True, label='C')
+
+# figure_s6.pdf is the publication file; figure_s6_preview.png is a lower-res
+# raster copy for quickly checking layout without opening the PDF
+pf.save("figure_s6.pdf", dpi=300, transparent=True)
+pf.fig.savefig("figure_s6_preview.png", dpi=200)
+plt.show()

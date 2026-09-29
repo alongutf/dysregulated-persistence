@@ -2,69 +2,90 @@ import src.analysis_functions as af
 import src.data_functions as df
 import matplotlib.pyplot as plt
 from figure_functions import PanelFigure
+import permutation_pvalues as pv
+from matplotlib.colors import to_rgba
 import numpy as np
 import pandas as pd
 from scipy import stats
-from scipy.stats import ttest_ind
-from scipy.stats import t
 import os
 import importlib
-from collections import OrderedDict
 
 importlib.reload(af)
 importlib.reload(df)
 # ------------------------------------------------------------------
 # BUILD FIGURE
 # ------------------------------------------------------------------
-def get_data_for_plot(path, norm=True, log=False, norm_method='sum', norm_sum=1):
-    # get annotated matrix from file
-    amat = df.read_from_csv(path)
-    # calculate the eigenvalues and plot:
-    m = amat.get_filtered_matrix().m
-    pcs, pcs1 = af.get_eig_dist(m, norm=norm, log=log, norm_method=norm_method, norm_sum=norm_sum)
-    return pcs, pcs1, m.shape[0]
+fsize = 10
+plt.close("all")
+root_dir = os.path.dirname(os.path.dirname(os.getcwd()))
+ev_data_dir = os.path.join(root_dir, 'ev_data')
+
+REG_COLOR = 'steelblue'
+DIS_COLOR = '#E07B54'
+
+# Shared style for the median reference lines in panels E and F
+# (kept identical so the dashed lines have the same width/opacity in both).
+REF_LW = 1
+REF_ALPHA = 0.85
 
 
-def plot_eigvals(ax, pcs, pcs1, N, x_max, y_max, n_bins, x_label=True, y_label=True):
-    # plot the eigenvalue distribution of the normalized filtered matrix
-    # define limits and bin number
-    P = len(pcs)
-    scale = 1  # scale factor for the Marchenko-Pastur distribution
-    edges = np.linspace(-0.1, x_max, num=n_bins)
+RANKING_PARAM = 'sum_denoised_ev'
+# External / duplicate datasets left out of the Regulated vs Dis-Arrest comparison
+TO_EXCLUDE = ['adam_matrix_filtered.csv', 'deb_Ec_CDS_untreated.csv', 'deb_KP_CDS_untreated.csv']
 
-    # remove zeros in pcs and pcs1
-    # if alpha>1 adjust the scale factor to match theoretical results
-    if P / N > 1:
-        scale = N / P
-        pcs = pcs[pcs != 0]
-        pcs1 = pcs1[pcs1 != 0]
 
-    # first plot
-    counts, bins = np.histogram(pcs, bins=edges, density=True)
-    ax.plot(bins[1:], scale * counts, color='#3182bd', linewidth=1, label='original data')
-    ax.fill_between(bins[1:], scale * counts, 0, color='#9ecae1', alpha=.4)
-    # second plot
-    counts, bins = np.histogram(pcs1, bins=edges, density=True)
-    ax.plot(bins[1:], scale * counts, color='#de2d26', linewidth=1, label='scrambled data')
-    ax.fill_between(bins[1:], scale * counts, 0, color='#fc9272', alpha=.4)
-    # plot analytical Marchenko-Pastur distribution
-    x = np.linspace(-0.1, x_max, 100)
-    y = [af.mp_distribution(val, P / N) for val in x]
-    ax.plot(x, y, color='#756bb1', linestyle='dashed', label='MP')
-    # labels and limits
-    if x_label:
-        ax.set_xlabel("$\lambda$", fontsize=fsize)
-    if y_label:
-        ax.set_ylabel(r"$\rho(\lambda)$", fontsize=fsize)
-    ax.set_ylim(0, y_max)
-    ax.set_xlim(0, x_max)
-    # set x_ticks with difference of 2
-    ax.set_xticks(np.arange(0, (x_max // 2) * 2 + 2, 2))
-    # set y_ticks with difference of 0.1
-    ax.set_yticks(np.arange(0, (y_max // 0.1) * 0.1 + 0.1, 0.1))
-    ax.legend(facecolor='white', framealpha=1, fontsize=fsize-2, loc='upper right')
-    # set the font size of the ticks
-    ax.tick_params(axis='both', which='major', labelsize=fsize)
+def _load_gmp_cor():
+    """Per-sample GMP-Cor for the Regulated ('r') and Dis-Arrest ('d') groups.
+
+    Reads data_metrics.csv (the current metrics table, also the source of the
+    Ext. Data Fig. S3 values), so the box plot and its median lines agree.
+    """
+    path = os.path.join(root_dir, 'results', 'data_metrics', 'data_metrics.csv')
+    data = pd.read_csv(path, index_col=0)
+    data = data[~data['file_name'].isin(TO_EXCLUDE)]
+    g1 = data[data['category'] == 'r'][RANKING_PARAM]
+    g0 = data[data['category'] == 'd'][RANKING_PARAM]
+    return g1, g0
+
+
+def _load_group_medians():
+    g1, g0 = _load_gmp_cor()
+    return g1.median(), g0.median()
+
+
+med_reg, med_dis = _load_group_medians()
+
+
+def _plot_ccdf(ax, npy_file, title, signal_color='skyblue'):
+    arr = np.load(os.path.join(ev_data_dir, npy_file))
+    data1 = arr[0, :];  data1 = data1[data1 > 0]
+    data2 = arr[1, :];  data2 = data2[data2 > 0]
+    x2 = float(np.max(data2))
+    d1s = np.sort(data1)
+    d2s = np.sort(data2)
+    p1 = len(d1s)
+    ccdf1 = 1 - np.arange(1, p1 + 1) / p1 + 1 / p1
+    p2 = len(d2s)
+    ccdf2 = 1 - np.arange(1, p2 + 1) / p2 + 1 / p2
+    noise = d1s < x2
+    ax.loglog(d1s[noise], ccdf1[noise], '.', linestyle='-',
+              color='darkgray', alpha=0.7, label='spurious', markersize=3)
+    ax.loglog(d1s[~noise], ccdf1[~noise], '.', linestyle='-',
+              color=signal_color, label='signal', markersize=3)
+    ax.loglog(d2s, ccdf2, '.', linestyle='-',
+              color='black', alpha=0.5, label='scrambled', markersize=3)
+    ax.set_xlim([0.1, 30])
+    ax.axvline(x2, color='k', linestyle='--', alpha=0.6)
+    ax.text(x2 * 1.1, 0.8, r'$\lambda_\mathrm{max}^\mathrm{scr}$',
+            fontsize=fsize - 2, va='center', ha='left', color='k', alpha=0.7,
+            transform=ax.get_xaxis_transform())
+    ax.set_xlabel(r'$\lambda$', fontsize=fsize - 2, labelpad=0)
+    ax.set_ylabel('CCDF', fontsize=fsize - 2, labelpad=0)
+    ax.set_title(title, fontsize=fsize-2, pad=0)
+    # p-value rides in the legend box, under the three series keys; a no-op for
+    # the simulated spectra, which have no permutation test
+    pv.legend_with_p(ax, npy_file, fontsize=fsize - 2)
+    ax.tick_params(labelsize=fsize - 2)
 
 
 def format_p(p):
@@ -79,135 +100,32 @@ def format_p(p):
     else:
         return 'NS'
 
+
+# ── Row 1: Experimental data (Reg-Arrest / Dis-Arrest) ─────────────
 def panel_A(ax):
-    nbins = 81
-    x_max = 8
-    y_max = 0.3
-    norm = True
-    log = False
-    norm_method = 'sum'
-    norm_sum = 1
-    plt.rcParams.update({'font.size': fsize})
-    file_name = ('sample_2b_filtered.csv')
-    path = os.path.join(root_dir, 'data_for_paper', file_name)
-    pcs, pcs1, N = get_data_for_plot(path, norm=norm, log=log, norm_method=norm_method, norm_sum=norm_sum)
-    ax.set_title('Exponential', fontsize=fsize)
-    plot_eigvals(ax, pcs, pcs1, N, x_max, y_max, nbins)
-    ax.set_xlabel(r"Eigenvalue - $\lambda$", fontsize=fsize, labelpad=0)
-    ax.set_ylabel(r"Probability Density - $\rho(\lambda)$", fontsize=fsize, labelpad=0)
+    _plot_ccdf(ax, 'sample_15b_filtered.npy', 'Reg-Arrest', signal_color=REG_COLOR)
 
 
 def panel_B(ax):
-    nbins = 81
-    x_max = 8
-    y_max = 0.3
-    norm = True
-    log = False
-    norm_method = 'sum'
-    norm_sum = 1
-    plt.rcParams.update({'font.size': fsize})
-    file_name = ('sample_15b_filtered.csv')
-    path = os.path.join(root_dir, 'data_for_paper', file_name)
-    pcs, pcs1, N = get_data_for_plot(path, norm=norm, log=log, norm_method=norm_method, norm_sum=norm_sum)
-    ax.set_title('Reg-Arrest', fontsize=fsize)
-    plot_eigvals(ax, pcs, pcs1, N, x_max, y_max, nbins)
+    _plot_ccdf(ax, 'sample_15a_filtered.npy', 'Dis-Arrest', signal_color=DIS_COLOR)
 
 
+# ── Row 2: Simulations (high / low ρ) ──────────────────────────────
 def panel_C(ax):
-    nbins = 81
-    x_max = 8
-    y_max = 0.3
-    norm = True
-    log = False
-    norm_method = 'sum'
-    norm_sum = 1
-    plt.rcParams.update({'font.size': fsize})
-    file_name = ('sample_15a_filtered.csv')
-    path = os.path.join(root_dir, 'data_for_paper', file_name)
-    pcs, pcs1, N = get_data_for_plot(path, norm=norm, log=log, norm_method=norm_method, norm_sum=norm_sum)
-    ax.set_title('Dis-Arrest', fontsize=fsize)
-    plot_eigvals(ax, pcs, pcs1, N, x_max, y_max, nbins)
+    _plot_ccdf(ax, 'simulated_pcs_0.9.npy', r'Simulation ($\chi=0.9$)', signal_color=REG_COLOR)
 
 
 def panel_D(ax):
-    # set theme
-    plt.style.use('default')
-    # plot data with model fit:
-    # load data
-    fit_path = os.path.join(root_dir, 'model fit', 'fit_sample_2b.txt')
-    data_path = os.path.join(root_dir, 'model fit', 'pc_data', 'sample_2b_filtered.csv')
-    # get fit data
-    fit_data = pd.read_csv(fit_path, sep='\t', header=None)
-    # get data
-    data = pd.read_csv(data_path)
-    # remove zeros
-    data = data[data['Y'] > 0]
-    fit_data = fit_data[fit_data[0] > 0]
-    # plot data and fit
-    ax.scatter(data['X'], data['Y'], s=5, color='#de2d26', label='exponential data')
-    ax.plot(fit_data[1], fit_data[0], color='#3182bd', label='GMP fit', linewidth=1.5)
-    ax.set_xlabel('$\lambda$', fontsize=fsize)
-    ax.set_ylabel(r'$\rho(\lambda)$', fontsize=fsize)
-    ax.set_xlim(0, 10)
-    ax.set_ylim(0, 0.35)
-    # axis ticks
-    ax.set_yticks(np.arange(0, 0.4, 0.1))
-    # set tick fontsize
-    ax.tick_params(axis='both', which='major', labelsize=fsize)
-    ax.legend(fontsize=fsize-2, loc='upper right')
+    _plot_ccdf(ax, 'simulated_pcs_0.5.npy', r'Simulation ($\chi=0.5$)', signal_color=DIS_COLOR)
 
 
+# ── Panel E: Box plot (Regulated vs Dis-Arrest GMP-Cor) ────────────
 def panel_E(ax):
-    # Create bar plot graph from model fit:
-    # load data
-    dataset_values = os.path.join(root_dir, 'scripts', 'figures', 'figure3', 'dataset_summary_no_plasmid_genes.csv')
-    scrambled_values = os.path.join(root_dir, 'scripts', 'figures', 'figure3', 'scrambled_GMPcor.csv')
-    # read data
-    data = pd.read_csv(dataset_values)
-    scrambled = pd.read_csv(scrambled_values)
-    samples = {'sample_2b', 'sample_15b', 'sample_15a'}
-    labels = {'sample_2b': 'Exponential','sample_13b': 'Reg-Arrest', 'sample_15b': 'Reg-Arrest','sample_13a': 'Dis-Arrest', 'sample_15a': 'Dis-Arrest'}
-    colors = ["#9ecae1", "#9ecae1", "#a50f15","#bdbdbd"]
-    # get data for the samples
-    data = data[data['sample'].isin(samples)]
-    # sort data
-    data = data.sort_values('sigma fit', ascending=False)
-    sigma_dict = {'Exponential': [], 'Reg-Arrest': [], 'Dis-Arrest': []}
-    error_dict = {'Exponential': [], 'Reg-Arrest': [], 'Dis-Arrest': []}
-    # get the sigma fit values
-    for sample in samples:
-        sigma_dict[labels[sample]].append(data[data['sample'] == sample]['sigma fit'].values[0])
-        error_dict[labels[sample]].append(data[data['sample'] == sample]['standard error'].values[0])
-    # create bar plot from dictionary
-    labels = list(sigma_dict.keys())
-    means = [np.mean(values) for values in sigma_dict.values()]
-    errors = [np.mean(values) for values in error_dict.values()]  # standard error
-    # add the scrambled values
-    labels.append('Scrambled')
-    means.append(scrambled['GMP-Cor'].mean())
-    errors.append(scrambled['GMP-Cor'].std() / np.sqrt(len(scrambled)))  # standard error
-    ax.bar(labels, means, yerr=errors, capsize=5,
-           color=colors, edgecolor='black', alpha=0.7, width=0.3)
-
-    ax.set_ylim([0, 1])
-    ax.set_ylabel('GMP-Cor', fontsize=fsize)
-    ax.set_xticks(range(len(labels)))
-    ax.set_xticklabels(labels, rotation=25)
-    ax.tick_params(axis='both', which='major', labelsize=fsize)
-
-
-def panel_F(ax):
-    path = os.path.join(root_dir, 'scripts', 'figures', 'figure3', 'dataset_summary_no_plasmid_genes.csv')
-    data = pd.read_csv(path, header=0)
-    ranking_param = 'sigma fit'
-    # Sort values and compute rank
-    data['Rank'] = data[ranking_param].rank(method='min').astype(int)
-    # Split data into two groups based on labels
-    group1 = data[data['class'] == 'reg'][ranking_param]
-    group0 = data[data['class'] == 'dis'][ranking_param]
+    group1, group0 = _load_gmp_cor()
     c = "k"
     box = ax.boxplot([group1, group0], meanline=True, showmeans=True, patch_artist=True,
-                     boxprops=dict(facecolor="None", color=c), whiskerprops=dict(color=c), capprops=dict(color=c),
+                     boxprops=dict(facecolor="None", color=c), whiskerprops=dict(color=c),
+                     capprops=dict(color=c),
                      flierprops=dict(markeredgecolor=c, markersize=2), medianprops=dict(color=c))
     for element in ['boxes', 'whiskers', 'caps', 'medians']:
         for item in box[element]:
@@ -217,48 +135,53 @@ def panel_F(ax):
         mean_line.set_color(c)
         mean_line.set_linestyle('solid')
 
-    ax.set_xticklabels(['Regulated', 'Dis-Arrest'], fontsize=fsize, rotation=0, ha='center')
-    ax.set_ylabel('Enrichment score', fontsize=fsize, labelpad=0)
-    ax.set_yticks([0.2, 0.4, 0.6, 0.8, 1])
-    ax.set_ylim([0.2, 1])
-    ax.set_yticklabels([0.2, 0.4, 0.6, 0.8, 1], fontsize=fsize - 2)
-    # add u-test results
+    for patch, color in zip(box['boxes'], [REG_COLOR, DIS_COLOR]):
+        patch.set_edgecolor(color)
+        patch.set_facecolor((*to_rgba(color)[:3], 0.12))
+
+    rng = np.random.default_rng(42)
+    for i, (grp, color) in enumerate([(group1, REG_COLOR), (group0, DIS_COLOR)], start=1):
+        jitter = rng.uniform(-0.12, 0.12, size=len(grp))
+        ax.scatter(i + jitter, grp, color=color, alpha=0.5, s=10, zorder=3, edgecolors='none')
+
+    ax.axhline(med_reg, color=REG_COLOR, linestyle='--', linewidth=REF_LW, alpha=REF_ALPHA)
+    ax.axhline(med_dis, color=DIS_COLOR, linestyle='--', linewidth=REF_LW, alpha=REF_ALPHA)
+
+    ax.set_xticklabels(['Regulated', 'Dis-Arrest'], fontsize=fsize - 2, rotation=0, ha='center')
     u_stat, u_p = stats.mannwhitneyu(group1, group0)
-
-    # Define the level of significance
     asterisks = format_p(u_p)
-    # Add significance annotation
-    x1, x2 = 1, 2  # x-coordinates of the box plots
-    y, h = max(max(group1), max(group0))+0.02, 0.02  # y-position and height of the annotation
+    x1, x2 = 1, 2
+    y_top = max(group1.max(), group0.max())
+    h = 1
+    y = y_top + h * 0.5
     ax.plot([x1, x1, x2, x2], [y, y + h, y + h, y], lw=.75, color='black')
-    ax.text((x1 + x2) * 0.5, y + h, asterisks, ha='center', va='bottom', color='black', fontsize=fsize - 2)
-    ax.set_ylabel(r'GMP-Cor', fontsize=fsize)
+    ax.text((x1 + x2) * 0.5, y + h * 1.1, asterisks, ha='center', va='bottom',
+            color='black', fontsize=fsize - 2)
+    ax.set_ylabel('GMP-Cor', fontsize=fsize - 2)
+    ax.set_ylim(bottom=-1, top=45)
+    ax.grid(False)
+    ax.tick_params(axis='both', which='major', labelsize=fsize - 2)
 
 
-# Build figure 1:
-fsize = 10
-plt.close("all")
-root_dir = os.path.dirname(os.path.dirname(os.getcwd()))
-pf = PanelFigure(figsize=(7, 5), label_offset=(0, 0.04))
+# ------------------------------------------------------------------
+# Assemble — 2×2 grid of CCDFs (A–D) with the box plot (E) to the right
+# ------------------------------------------------------------------
+pf = PanelFigure(figsize=(7, 3.5), label_offset=(-0.04, 0.05))
 panel_pos = [
-    [0.1, 0.6, 0.23, 0.35],  # A
-    [0.42, 0.6, 0.23, 0.35],  # B
-    [0.74, 0.6, 0.23, 0.35],  # C
-    [0.1, 0.12, 0.23, 0.35],  # D
-    [0.42, 0.12, 0.23, 0.35],  # E
-    [0.74, 0.12, 0.23, 0.35]  # F
+    # Left block — 2×2 experimental / simulation CCDFs (short)
+    [0.07, 0.61, 0.26, 0.32],  # A — Reg-Arrest CCDF
+    [0.42, 0.61, 0.26, 0.32],  # B — Dis-Arrest CCDF
+    [0.07, 0.11, 0.26, 0.32],  # C — Sim χ=0.9 CCDF
+    [0.42, 0.11, 0.26, 0.32],  # D — Sim χ=0.5 CCDF
+    # Right — box plot spanning the height of the A–D block
+    [0.76, 0.25, 0.2, 0.5],  # E — Box plot (Regulated vs Dis-Arrest)
 ]
-# panel A:
 pf.add_panel(panel_pos[0], draw_func=panel_A)
-# panel B:
 pf.add_panel(panel_pos[1], draw_func=panel_B)
-# panel C:
 pf.add_panel(panel_pos[2], draw_func=panel_C)
-# panel D:
 pf.add_panel(panel_pos[3], draw_func=panel_D)
-# panel E:
 pf.add_panel(panel_pos[4], draw_func=panel_E)
-# panel F:
-pf.add_panel(panel_pos[5], draw_func=panel_F)
-#pf.save("figure3.svg", dpi=300, transparent=True)
+
+pf.save("figure3.pdf", dpi=300, transparent=True)
+pf.save("figure3_preview.png", dpi=200)
 plt.show()

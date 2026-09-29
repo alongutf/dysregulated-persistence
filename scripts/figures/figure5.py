@@ -1,9 +1,14 @@
 import matplotlib.pyplot as plt
+from matplotlib.patches import Patch
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 from figure_functions import PanelFigure
+import permutation_pvalues as pv
 import numpy as np
 import pandas as pd
 import os
+import base64
+import io
+from PIL import Image
 from scipy.stats import t
 import src.analysis_functions as af
 import src.data_functions as df
@@ -11,6 +16,70 @@ import src.data_functions as df
 # ------------------------------------------------------------------
 # BUILD FIGURE
 # ------------------------------------------------------------------
+def _load_svg_image(svg_path):
+    """Extract the embedded PNG from a BioRender SVG (base64 data URI)."""
+    import xml.etree.ElementTree as ET
+    tree = ET.parse(svg_path)
+    root = tree.getroot()
+    for elem in root.iter():
+        href = (elem.get('{http://www.w3.org/1999/xlink}href') or
+                elem.get('href', ''))
+        if href.startswith('data:image/png;base64,'):
+            img_bytes = base64.b64decode(href[len('data:image/png;base64,'):])
+            return Image.open(io.BytesIO(img_bytes))
+    return None
+
+
+def _read_norm_block(sheet, label, n_reps=3, n_times=5):
+    """Return (times, replicates) for a *normalised* MPN block, located by its row label.
+
+    Some labels occur twice in the sheet — once for the raw MPN counts and once for the
+    ratios normalised to each replicate's own t=0. The normalised block is the one whose
+    t=0 row is exactly 1 for every replicate.
+    """
+    rows = np.where(sheet[0].astype(str).str.strip() == label)[0]
+    for r in rows:
+        block = (sheet.iloc[r + 1:r + 1 + n_times, 0:1 + n_reps]
+                 .apply(pd.to_numeric, errors='coerce').dropna())
+        if len(block) == 0:
+            continue
+        reps = block.iloc[:, 1:].to_numpy(dtype=float)
+        if np.allclose(reps[0], 1.0):
+            return block.iloc[:, 0].to_numpy(dtype=float), reps
+    raise ValueError(f'no normalised block labelled {label!r} in the MPN sheet')
+
+
+def _plot_ccdf(ax, npy_file, title, signal_color='skyblue'):
+    arr = np.load(os.path.join(ev_data_dir, npy_file))
+    data1 = arr[0, :];  data1 = data1[data1 > 0]
+    data2 = arr[1, :];  data2 = data2[data2 > 0]
+    x2 = float(np.max(data2))
+    d1s = np.sort(data1)
+    d2s = np.sort(data2)
+    p1 = len(d1s)
+    ccdf1 = 1 - np.arange(1, p1 + 1) / p1 + 1 / p1
+    p2 = len(d2s)
+    ccdf2 = 1 - np.arange(1, p2 + 1) / p2 + 1 / p2
+    noise = d1s < x2
+    ax.loglog(d1s[noise], ccdf1[noise], '.', linestyle='-',
+              color='darkgray', alpha=0.7, label='spurious', markersize=3)
+    ax.loglog(d1s[~noise], ccdf1[~noise], '.', linestyle='-',
+              color=signal_color, label='signal', markersize=3)
+    ax.loglog(d2s, ccdf2, '.', linestyle='-',
+              color='black', alpha=0.5, label='scrambled', markersize=3)
+    ax.set_xlim([0.1, 30])
+    ax.axvline(x2, color='k', linestyle='--', alpha=0.6)
+    ax.text(x2 * 1.1, 0.8, r'$\lambda_\mathrm{max}^\mathrm{scr}$',
+            fontsize=fsize - 2, va='center', ha='left', color='k', alpha=0.7,
+            transform=ax.get_xaxis_transform())
+    ax.set_xlabel(r'$\lambda$', fontsize=fsize - 2, labelpad=0)
+    ax.set_ylabel('CCDF', fontsize=fsize - 2, labelpad=0)
+    ax.set_title(title, fontsize=fsize)
+    # p-value rides in the legend box, under the three series keys
+    pv.legend_with_p(ax, npy_file, fontsize=fsize - 2)
+    ax.tick_params(labelsize=fsize - 2)
+
+
 def get_data_for_plot(path, norm=True, log=False, norm_method='sum', norm_sum=1):
     # get annotated matrix from file
     amat = df.read_from_csv(path)
@@ -62,7 +131,73 @@ def plot_eigvals(ax, pcs, pcs1, N, x_max, y_max, n_bins, x_label=True, y_label=T
     ax.tick_params(axis='both', which='major', labelsize=fsize)
 
 
+def panel_A(ax):
+    svg_path = os.path.join(root_dir, 'scripts', 'figures', 'figure5', 'biorender2.svg')
+    img = _load_svg_image(svg_path)
+    ax.imshow(img)
+    ax.axis('off')
+
+
 def panel_B(ax):
+    """Kill curve: VapC cells vs. control, in the same format as figure 1C.
+
+    Survival fractions are ratios spanning several decades, so the panel plots the
+    geometric mean with multiplicative geometric-SD whiskers (GM/GSD to GM*GSD). An
+    arithmetic mean +/- SD is unusable here: at 48 h the VapC point is 0.0069 +/- 0.0070,
+    putting the lower bound below zero, which cannot be drawn on a log axis.
+
+    GM and GSD are computed directly from the three biological replicates (sample SD of
+    the logs, ddof=1). `kill curves/VapC.xlsx` holds the same curves but only as summary
+    mean/SD, so it is not used here.
+    """
+    path = os.path.join(root_dir, 'kill curves', '20260719_VIGA24h_TolwoATC_Prep.xlsx')
+    sheet = pd.read_excel(path, sheet_name='MPN', header=None)
+
+    floor = 1e-5  # detection limit; points below it get a label only, no marker or line
+    series = [
+        ('CASP dilAMP (20260705)', 'Reg-Arrest', '#2166ac'),
+        ('Norm. vapC dilAMP', 'VapC 24h', '#b2182b'),
+    ]
+    for block_label, label, color in series:
+        x, reps = _read_norm_block(sheet, block_label)
+        # a replicate of exactly 0 is an undetected plating, not a real zero: it has no
+        # logarithm, so the time point is treated as below the detection limit
+        measurable = (reps > 0).all(axis=1)
+        gm = np.full(len(x), np.nan)
+        gsd = np.full(len(x), np.nan)
+        log_reps = np.log(reps[measurable])
+        gm[measurable] = np.exp(log_reps.mean(axis=1))
+        gsd[measurable] = np.exp(log_reps.std(axis=1, ddof=1))
+
+        detected = measurable & (gm >= floor)
+        # multiplicative whiskers: GM / GSD  to  GM * GSD
+        yerr = np.vstack([gm[detected] * (1 - 1 / gsd[detected]),
+                          gm[detected] * (gsd[detected] - 1)])
+        ax.errorbar(x[detected], gm[detected], yerr=yerr, fmt='o-', markersize=4,
+                    capsize=2, linewidth=1, color=color, label=label)
+
+        censored = ~detected
+        if censored.any():
+            # below the detection limit: label only, so the curve ends at the last
+            # measurable point instead of being drawn down onto the axis cut-off
+            ax.text(x[censored].min(), floor, r'$<10^{-5}$', fontsize=fsize - 2,
+                    color=color, ha='center', va='bottom')
+
+    ax.set_yscale('log')
+    #ax.set_ylim(floor * 0.6, 4)
+    #ax.set_yticks([1e-5, 1e-4, 1e-3, 1e-2, 1e-1, 1])
+    ax.set_xlim(-1, 50)
+    ax.set_xticks([0, 24, 48])
+    ax.set_xlabel('Time in Ampicillin (h)', fontsize=fsize - 2, labelpad=0)
+    ax.set_ylabel('Survival fraction', fontsize=fsize - 2, labelpad=0)
+    ax.tick_params(axis='both', labelsize=fsize - 2)
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    ax.legend(fontsize=fsize - 3, frameon=False, loc='upper right', handlelength=1.2,
+              borderpad=0.1, labelspacing=0.2, handletextpad=0.4)
+
+
+def panel_C(ax):
     data = pd.read_csv(os.path.join(root_dir, 'scanpy', 'umap_coordinates_vapc.csv'), index_col=0,
                        header=0)
 
@@ -83,7 +218,7 @@ def panel_B(ax):
     ax.set_xticks([])
     ax.set_yticks([])
 
-def panel_C(ax):
+def panel_D(ax):
     # UMAP panel:
     # Load data
     # project directory
@@ -105,78 +240,49 @@ def panel_C(ax):
     ax.set_xticks([])
     ax.set_yticks([])
 
-def panel_D(ax):
-    file_name = 'VapC_biorep_t2A_filtered.csv'
-    nbins = 81
-    x_max = 8
-    y_max = 0.27
-    norm = True
-    log = False
-    norm_method = 'sum'
-    norm_sum = 1
-    path = os.path.join(root_dir, 'data_for_paper', file_name)
-    pcs, pcs1, N = get_data_for_plot(path, norm=norm, log=log, norm_method=norm_method, norm_sum=norm_sum)
-    ax.set_title('Early VapC (2h)', fontsize=fsize)
-    plot_eigvals(ax, pcs, pcs1, N, x_max, y_max, nbins)
-    ax.set_ylabel(r"Probability Density - $\rho(\lambda)$", fontsize=fsize, labelpad=0)
-    ax.set_xlabel(r"Eigenvalue - $\lambda$", fontsize=fsize, labelpad=0)
-
 def panel_E(ax):
-    file_name = 'VapC_biorep_tONA_filtered.csv'
-    nbins = 81
-    x_max = 8
-    y_max = 0.25
-    norm = True
-    log = False
-    norm_method = 'sum'
-    norm_sum = 1
-    path = os.path.join(root_dir, 'data_for_paper', file_name)
-    pcs, pcs1, N = get_data_for_plot(path, norm=norm, log=log, norm_method=norm_method, norm_sum=norm_sum)
-    ax.set_title('Late VapC (24h)', fontsize=fsize)
-    plot_eigvals(ax, pcs, pcs1, N, x_max, y_max, nbins)
+    _plot_ccdf(ax, 'VapC_biorep_t2A_filtered.npy', 'Early VapC (2h)', signal_color=REG_COLOR)
+
 
 def panel_F(ax):
-    # Create bar plot graph from model fit:
-    # load data
-    dataset_values = os.path.join(root_dir,'scripts','figures','figure5','dataset_summary_no_plasmid_genes.csv')
-    scrambled_values = os.path.join(root_dir, 'scripts', 'figures', 'figure3', 'scrambled_GMPcor.csv')
-    # read data
-    data = pd.read_csv(dataset_values)
-    scrambled = pd.read_csv(scrambled_values)
-    samples = {'EXP_biorep_t0A','VapC_biorep_t2A','VapC_biorep_t5A', 'VapC_biorep_tONA'}
-    labels = ['Exponential','VapC\n2h','VapC\n5h','VapC\n24h']
-    # get data for the samples
-    data = data[data['sample'].isin(samples)]
-    data['time'] = [20, 2, 5, 0]
-    # sort data
-    colors = ['#4393c3', '#f4a582', '#d6604d', '#b2182b', "#bdbdbd"]
-    data = data.sort_values('time', ascending=True)
+    _plot_ccdf(ax, 'VapC_biorep_tONA_filtered.npy', 'Late VapC (24h)', signal_color=DIS_COLOR)
+
+def panel_G(ax):
+    # data_metrics.csv is the current metrics table (18 datasets, and the source of
+    # the GMP-Cor CI); test8.csv is an older 15-dataset scramble realisation
+    data = pd.read_csv(os.path.join(root_dir, 'results', 'data_metrics',
+                                    'data_metrics.csv'), index_col=0)
+    sample_map = [
+        ('Expira_biorep_t0A_filtered.csv', 'Exponential', '#4393c3'),
+        ('VapC_biorep_t2A_filtered.csv',   'VapC\n2h',   '#f4a582'),
+        ('VapC_biorep_t5A_filtered.csv',   'VapC\n5h',   '#d6604d'),
+        ('VapC_biorep_tONA_filtered.csv',  'VapC\n24h',  '#b2182b'),
+    ]
+    labels, values, colors, errs = [], [], [], []
+    for fname, lbl, col in sample_map:
+        row = data[data['file_name'] == fname]
+        if len(row) > 0:
+            labels.append(lbl)
+            values.append(row['sum_denoised_ev'].iloc[0])
+            colors.append(col)
+            # GMP-Cor uncertainty sqrt(N)*sigma, propagated from the noise in the
+            # scrambled threshold (see scripts/add_permutation_metrics.py)
+            errs.append(pv.gmp_cor_ci(fname) or 0.0)
+
     bar_width = 0.25
     gap_between_bars = 0.4
-    # add the scrambled values
-    labels.append('Scrambled')
-    means = data['sigma fit'].to_list()
-    errors = data['standard error'].to_list()
-    means.append(scrambled['GMP-Cor'].mean())
-    errors.append(scrambled['GMP-Cor'].std() / np.sqrt(len(scrambled)))  # standard error
-    positions = [i * (bar_width + gap_between_bars) for i in range(len(means))]
-    # create bar plot of sigma fit values
-    positions[0] -= gap_between_bars / 2  # adjust first bar position
-    positions[-1] += gap_between_bars / 2 # adjust last bar position
-    ax.bar(positions, means, yerr=errors, capsize=2.5, color=colors, edgecolor='black',
-           alpha=0.7, width=bar_width)
-
-    # set positions of bars
+    positions = [i * (bar_width + gap_between_bars) for i in range(len(values))]
+    ax.bar(positions, values, color=colors, edgecolor='black', alpha=0.7, width=bar_width,
+           yerr=errs, capsize=3, error_kw=dict(ecolor='black', elinewidth=1, capthick=1))
     ax.set_xticks(positions)
     ax.set_xticklabels(labels, rotation=0, fontsize=fsize-2, ha='center')
     ax.set_ylabel('GMP-Cor', fontsize=fsize, labelpad=0)
-    ax.set_yticks([0.2, 0.4, 0.6, 0.8])
     ax.tick_params(axis='both', which='major', labelsize=fsize-2)
-    ax.set_ylim([0, 1])
+    ax.set_ylim([0, 45])
     ax.set_xlim([positions[0] - gap_between_bars/2, positions[-1] + gap_between_bars/2])
 
 
-def panel_G(ax):
+def panel_H(ax):
     path = os.path.join(root_dir,'scripts','figures','figure5','normalizedOD_at_20h.csv')
     data = pd.read_csv(path, header=0,
                        index_col=0)
@@ -255,66 +361,151 @@ def panel_G(ax):
 
 
 
-def panel_H(ax):
-    # vapc lag time distribution
-    # Load the data
-    conditions = ['CTRLt0', 'VAPCt240', 'VAPCt1400']
-    labels = ['Reg-Arrest', 'Early VapC', 'Late VapC']
+def panel_I(ax):
+    # vapc lag time distribution -- vertical violins, one per condition
+    conditions = ['CTRLt0', 'CTRLt1400', 'VAPCt240', 'VAPCt1400']
+    labels = ['Exp', 'Reg-\nArrest', 'Early\nVapC', 'Late\nVapC']
+    colors = ['#2166ac', '#9ecae1', '#fb6a4a', '#a50f15']
+    plt.style.use('default')
+
     data = {}
-    colors = ['#9ecae1', '#fb6a4a', '#a50f15']
+    for condition in conditions:
+        path = os.path.join(root_dir, 'scripts', 'figures', 'figure5', condition + '.csv')
+        data[condition] = pd.read_csv(path, index_col=False, header=None).to_numpy()
+        if condition == 'CTRLt0':
+            t0 = np.median(data[condition])
+    print(t0)
+    # left to right in the listed order
+    series = [data[c].flatten() - t0 for c in conditions]
+    positions = list(range(1, len(conditions) + 1))
+
+    parts = ax.violinplot(series, positions=positions, vert=True,
+                          widths=0.75, showextrema=False, showmedians=False)
+    for body, color in zip(parts['bodies'], colors):
+        body.set_facecolor(color)
+        body.set_edgecolor('k')
+        body.set_linewidth(0.5)
+        body.set_alpha(1)
+
+    # median + interquartile range on top of each violin
+    for x, pos in zip(series, positions):
+        q1, med, q3 = np.percentile(x, [25, 50, 75])
+        ax.vlines(pos, q1, q3, color='k', linewidth=1.5, zorder=3)
+        ax.plot(pos, med, 'o', color='w', markersize=3,
+                markeredgecolor='k', markeredgewidth=0.5, zorder=4)
+
+    ax.set_ylabel('Lag time (min)', fontsize=fsize, labelpad=2)
+    ax.set_ylim([-100, 750])
+    ax.set_yticks([0, 200, 400, 600])
+    ax.set_xticks(positions)
+    ax.set_xticklabels(labels, fontsize=fsize - 2)
+    ax.set_xlim([0.4, len(conditions) + 0.6])
+    ax.tick_params(axis='y', which='major', labelsize=fsize)
+    ax.tick_params(axis='x', which='major', length=0, pad=1)
+    ax.spines[['top', 'right']].set_visible(False)
+
+
+def panel_I_3d(ax):
+    # vapc lag time distribution -- 3D waterfall histogram, one condition per depth slice
+    # Load the data
+    conditions = ['CTRLt0', 'CTRLt1400', 'VAPCt240', 'VAPCt1400']
+    labels = ['Exp', 'Reg-Arrest', 'Early VapC', 'Late VapC']
+    data = {}
+    colors = ['#2166ac', '#9ecae1', '#fb6a4a', '#a50f15']
     plt.style.use('default')
 
     for condition in conditions:
         path = os.path.join(root_dir, 'scripts', 'figures', 'figure5', condition + '.csv')
         data[condition] = pd.read_csv(path, index_col=False, header=None).to_numpy()
-    # plot histograms of lag time
-    edges = np.linspace(300, 1100, 51)
-    for i, condition in enumerate(conditions):
-        x = data[condition].flatten() + 400
-        ax.hist(x, bins=edges, color=colors[i], histtype='stepfilled', edgecolor='k', alpha=0.5, label=labels[i],
-                 density=True)
-    ax.set_xlabel('Lag time (min)', fontsize=fsize)
-    ax.set_ylabel(r'Frequency', labelpad=0, fontsize=fsize)
-    ax.text(310, 0.0175, r'$\times{10}^{-2}$', fontsize=fsize - 3)
-    # set axis label size
-    ax.legend(fontsize=fsize-2)
-    ax.set_xlim([300, 1100])
-    ax.set_xticks([300, 700, 1100])
-    ax.set_yticks([0, 0.01, 0.02])
-    ax.set_yticklabels([0, 1, 2])
-    ax.tick_params(axis='both', which='major', labelsize=fsize)
+        if condition == 'CTRLt0':
+            t0 = np.min(data[condition])
+
+    # replace the 2D axes with a 3D one at the same position
+    pos = ax.get_position()
+    fig = ax.figure
+    ax.remove()
+    ax = fig.add_axes(pos, projection='3d')
+
+    edges = np.linspace(0, 700, 51)
+    centers = 0.5 * (edges[:-1] + edges[1:])
+    width = edges[1] - edges[0]
+    # draw back-to-front so the near slices overlay the far ones
+    handles = []
+    for i in range(len(conditions) - 1, -1, -1):
+        condition = conditions[i]
+        x = data[condition].flatten() - t0
+        h, _ = np.histogram(x, bins=edges, density=True)
+        ax.bar(centers, h, zs=i, zdir='y', width=width,
+               color=colors[i], edgecolor='k', linewidth=0.2, alpha=1)
+    handles = [Patch(facecolor=c, edgecolor='k', linewidth=0.2, label=l)
+               for c, l in zip(colors, labels)]
+
+    ax.set_xlabel('Lag time (min)', fontsize=fsize - 2, labelpad=-4)
+    ax.set_zlabel(r'Frequency ($\times10^{-2}$)', fontsize=fsize - 2,
+                  rotation=90, labelpad=-10)
+    ax.set_xlim([0, 750])
+    ax.set_ylim([-0.5, len(conditions) - 0.5])
+    ax.set_xticks([200, 400, 600])
+    ax.set_yticks([])
+    ax.set_zticks([0, 0.01, 0.02])
+    ax.set_zticklabels([0, 1, 2])
+    ax.tick_params(axis='both', which='major', labelsize=fsize - 3, pad=-2)
+    ax.view_init(elev=22, azim=-58)
+    ax.set_box_aspect((1.5, 1.1, 0.85), zoom=1.0)
+    ax.xaxis.pane.set_alpha(0.0)
+    ax.yaxis.pane.set_alpha(0.0)
+    ax.zaxis.pane.set_alpha(0.0)
+    ax.grid(False)
+    # draw the vertical (frequency) axis on the left-hand side of the box
+    planes = ax.zaxis._PLANES
+    ax.zaxis._PLANES = (planes[2], planes[3], planes[0], planes[1],
+                        planes[4], planes[5])
+    ax.zaxis.set_rotate_label(False)  # keep the label upright along the axis
+    # conditions are identified by the legend instead of depth-axis ticks
+    ax.legend(handles=handles, fontsize=fsize - 3, loc='upper right',
+              bbox_to_anchor=(0.9, 0.9), frameon=False,
+              handlelength=1.0, handletextpad=0.4, labelspacing=0.25,
+              borderpad=0.0)
+
 
 ###
 # Build figure 5:
 fsize = 10
 plt.close("all")
 root_dir = os.path.dirname(os.path.dirname(os.getcwd()))
+ev_data_dir = os.path.join(root_dir, 'ev_data')
+REG_COLOR = 'steelblue'
+DIS_COLOR = '#E07B54'
 pf = PanelFigure(figsize=(7, 6), label_offset=(0, 0.03))
 panel_pos = [
-    [0.075, 0.6, 0.5, 0.34],  # A
-    [0.075, 0.45, 0.24, 0.2],  # B
-    [0.4, 0.45, 0.24, 0.2],  # C
-    [0.075, 0.08, 0.24, 0.28],  # D
-    [0.4, 0.08, 0.24, 0.28],  # E
-    [0.7, 0.72, 0.275, 0.22],  # F
-    [0.7, 0.41, 0.275, 0.22],  # G
-    [0.7, 0.08, 0.275, 0.22],  # H
+    [0.01, 0.7, 0.34, 0.24],  # A
+    [0.42, 0.74, 0.21, 0.2],  # B
+    [0.075, 0.45, 0.24, 0.2],  # C
+    [0.4, 0.45, 0.24, 0.2],  # D
+    [0.075, 0.08, 0.24, 0.28],  # E
+    [0.4, 0.08, 0.24, 0.28],  # F
+    [0.7, 0.72, 0.275, 0.22],  # G
+    [0.7, 0.41, 0.275, 0.22],  # H
+    [0.68, 0.02, 0.32, 0.3],  # I
 ]
 # panel A:
-pf.add_panel(panel_pos[0], hide_axis=True)
+pf.add_panel(panel_pos[0], draw_func=panel_A)
 # panel B:
 pf.add_panel(panel_pos[1], draw_func=panel_B)
 # panel C:
 pf.add_panel(panel_pos[2], draw_func=panel_C)
-# panel C:
-pf.add_panel(panel_pos[3], draw_func=panel_D)
 # panel D:
-pf.add_panel(panel_pos[4], draw_func=panel_E)
+pf.add_panel(panel_pos[3], draw_func=panel_D)
 # panel E:
-pf.add_panel(panel_pos[5], draw_func=panel_F)
+pf.add_panel(panel_pos[4], draw_func=panel_E)
 # panel F:
-pf.add_panel(panel_pos[6], draw_func=panel_G)
+pf.add_panel(panel_pos[5], draw_func=panel_F)
 # panel G:
+pf.add_panel(panel_pos[6], draw_func=panel_G)
+# panel H:
 pf.add_panel(panel_pos[7], draw_func=panel_H)
-#pf.save("figure5.svg", dpi=300)
+# panel I:
+pf.add_panel(panel_pos[8], draw_func=panel_I_3d)
+pf.save("figure5.pdf", dpi=300)
+pf.save("figure5_preview.png", dpi=200)
 plt.show()
